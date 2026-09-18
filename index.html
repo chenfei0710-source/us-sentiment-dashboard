@@ -638,7 +638,7 @@
 <div style="margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
     <div>
-      <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px;">30日走势</div>
+      <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px;">近期走势 · 数据每日自动追加</div>
       <div style="font-size:0.95rem;font-weight:600;">情绪指数 × SPX 涨跌幅</div>
     </div>
     <div style="display:flex;gap:16px;font-size:0.75rem;">
@@ -696,42 +696,11 @@
 (function() {
   // 近30个交易日数据（8月初 ~ 9月18日）
   // 随tracker.py积累后自动替换为真实数据
-  const labels = [
-    '8/4','8/5','8/6','8/7','8/8',
-    '8/11','8/12','8/13','8/14','8/15',
-    '8/18','8/19','8/20','8/21','8/22',
-    '8/25','8/26','8/27','8/28','8/29',
-    '9/2','9/3','9/4','9/5',
-    '9/8','9/9','9/10','9/11','9/12',
-    '9/15','9/16','9/17','9/18'
-  ];
-  const fg = [
-    52,49,51,54,56,
-    58,55,53,50,48,
-    46,44,47,45,43,
-    42,40,38,41,43,
-    45,42,40,38,
-    36,35,37,39,36,
-    34,33,32,29
-  ];
-  const vix = [
-    17.2,18.1,17.6,16.9,16.4,
-    15.8,16.2,16.8,17.3,17.9,
-    18.4,19.1,18.6,19.3,20.1,
-    20.8,21.4,22.0,21.3,20.5,
-    19.8,20.4,21.0,21.6,
-    20.9,20.2,19.5,18.8,19.2,
-    19.8,18.9,17.6,16.5
-  ];
-  const spxChg = [
-    0.31,-0.18,0.52,0.24,0.41,
-    0.38,-0.12,0.19,0.27,-0.09,
-    -0.24,-0.31,0.15,-0.18,-0.42,
-    -0.28,-0.51,-0.37,0.22,0.18,
-    0.31,-0.45,-0.28,-0.61,
-    0.14,-0.22,0.48,1.36,-0.31,
-    -0.31,0.31,0.69,-1.13
-  ];
+  // 仅使用仪表盘表格中确认的真实数据（tracker.py 每日自动追加）
+  const labels = ['9/11','9/12','9/15','9/16','9/17','9/18'];
+  const fg =     [  39,    38,    36,    35,    33,    29  ];
+  const vix =    [ 18.8,  19.2,  19.8,  18.9,  17.6,  16.5];
+  const spxChg = [ 1.36, -0.31, -0.31,  0.31,  0.69, -1.13];
 
   const ctx = document.getElementById('sentimentChart');
   if (!ctx) return;
