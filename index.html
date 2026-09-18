@@ -56,8 +56,9 @@
   @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
   .spk{vertical-align:middle;margin-left:6px;}
   .footer{margin-top:20px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:0.7rem;color:var(--muted);flex-wrap:wrap;gap:6px;}
-  .overall-box{background:var(--card2);border:2px solid #f59e0b33;border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:14px;}
-  .overall-big{font-size:1.6rem;font-weight:800;color:#f59e0b;}
+  .overall-box{background:var(--card2);border:2px solid #f59e0b33;border-radius:12px;padding:14px 20px;display:flex;align-items:center;flex-wrap:wrap;gap:16px;}
+  .overall-big{font-size:1.05rem;font-weight:800;white-space:nowrap;}
+  .overall-items{display:flex;align-items:center;flex-wrap:wrap;gap:0;font-size:1.05rem;font-weight:700;line-height:2;}
 </style>
 </head>
 <body>
@@ -77,13 +78,16 @@
 
 <!-- Overall -->
 <div class="overall-box" style="margin-bottom:18px;">
-  <div class="overall-big">🟡 中性</div>
-  <div style="font-size:0.82rem;color:var(--muted);line-height:1.7;">
-    <strong style="color:var(--text);">综合情绪信号</strong>｜
-    F&G <strong style="color:#ef4444;">29 恐惧</strong> ·
-    VIX <strong style="color:#f59e0b;">15.84</strong> ·
-    今日看涨 <strong style="color:#10b981;">72%</strong> ·
-    AAII 看跌 <strong style="color:var(--red);">39.3%</strong>
+  <div class="overall-big" style="color:#f59e0b;">🟡 中性</div>
+  <div style="width:1px;height:28px;background:var(--border);flex-shrink:0;"></div>
+  <div class="overall-items">
+    <span style="color:var(--muted);font-weight:400;font-size:1.05rem;">F&amp;G&nbsp;</span><span style="color:#ef4444;">29 恐惧</span>
+    <span style="color:var(--border);margin:0 12px;">·</span>
+    <span style="color:var(--muted);font-weight:400;font-size:1.05rem;">VIX&nbsp;</span><span style="color:#f59e0b;">15.84</span>
+    <span style="color:var(--border);margin:0 12px;">·</span>
+    <span style="color:var(--muted);font-weight:400;font-size:1.05rem;">今日看涨&nbsp;</span><span style="color:#10b981;">72%</span>
+    <span style="color:var(--border);margin:0 12px;">·</span>
+    <span style="color:var(--muted);font-weight:400;font-size:1.05rem;">AAII 看跌&nbsp;</span><span style="color:#ef4444;">39.3%</span>
   </div>
 </div>
 
