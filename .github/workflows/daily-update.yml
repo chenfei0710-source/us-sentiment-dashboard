@@ -1,0 +1,35 @@
+name: 美股情绪仪表盘每日更新
+
+on:
+  schedule:
+    - cron: "0 8 * * 1-5"   # UTC 08:00 = 北京 16:00，周一至周五
+  workflow_dispatch:          # 支持手动触发
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests yfinance pytz
+
+      - name: Run sentiment tracker
+        run: python tracker.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USER: chenfei0710-source
+          GITHUB_REPO: us-sentiment-dashboard
+
+      - name: Commit and push updated dashboard
+        run: |
+          git config user.name "Sentiment Bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add index.html us_sentiment_history.json
+          git diff --cached --quiet || git commit -m "自动更新 $(date +%Y-%m-%d)"
+          git push
