@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>美股情绪仪表盘</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --card: #111827;
+    --card2: #1a2235;
+    --border: #1f2d45;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --green: #10b981;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --blue: #3b82f6;
+    --purple: #8b5cf6;
+    --orange: #f97316;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.5px; }
+  .header h1 span { color: var(--blue); }
+  .header .date { color: var(--muted); font-size: 0.85rem; text-align: right; }
+  .header .date strong { color: var(--text); display: block; font-size: 1rem; }
+
+  /* Grid */
+  .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+  .col-4 { grid-column: span 4; }
+  .col-6 { grid-column: span 6; }
+  .col-8 { grid-column: span 8; }
+  .col-12 { grid-column: span 12; }
+
+  @media (max-width: 900px) {
+    .col-4, .col-6, .col-8 { grid-column: span 12; }
+  }
+
+  /* Card */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 14px 14px 0 0;
+  }
+  .card.red::before { background: var(--red); }
+  .card.green::before { background: var(--green); }
+  .card.yellow::before { background: var(--yellow); }
+  .card.blue::before { background: var(--blue); }
+  .card.purple::before { background: var(--purple); }
+  .card.orange::before { background: var(--orange); }
+
+  .card-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .card-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+
+  /* Fear & Greed Gauge */
+  .gauge-wrap { position: relative; text-align: center; padding: 10px 0; }
+  .gauge-svg { width: 100%; max-width: 260px; }
+  .gauge-value {
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1;
+    margin: 4px 0;
+  }
+  .gauge-label {
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 4px 14px;
+    border-radius: 20px;
+    display: inline-block;
+    margin: 4px 0;
+  }
+  .fear { background: rgba(239,68,68,0.15); color: var(--red); }
+  .extreme-fear { background: rgba(239,68,68,0.25); color: #ff2222; }
+  .neutral-label { background: rgba(245,158,11,0.15); color: var(--yellow); }
+  .greed { background: rgba(16,185,129,0.15); color: var(--green); }
+  .extreme-greed { background: rgba(16,185,129,0.25); color: #00ff88; }
+
+  .gauge-sub { font-size: 0.78rem; color: var(--muted); margin-top: 6px; }
+
+  /* AAII Bar */
+  .aaii-bars { margin-top: 8px; }
+  .bar-row { margin-bottom: 14px; }
+  .bar-row-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    margin-bottom: 5px;
+  }
+  .bar-row-head .name { color: var(--muted); }
+  .bar-row-head .val { font-weight: 700; }
+  .bar-track {
+    background: var(--border);
+    border-radius: 6px;
+    height: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 1.2s cubic-bezier(.4,0,.2,1);
+  }
+  .bar-avg-line {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background: rgba(255,255,255,0.35);
+    border-radius: 2px;
+  }
+  .avg-note {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .avg-dash {
+    display: inline-block;
+    width: 12px;
+    height: 2px;
+    background: rgba(255,255,255,0.35);
+    border-radius: 2px;
+  }
+
+  /* VIX */
+  .vix-big {
+    font-size: 3.5rem;
+    font-weight: 800;
+    line-height: 1;
+    margin: 8px 0;
+  }
+  .vix-range {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .vix-range-item { font-size: 0.8rem; color: var(--muted); }
+  .vix-range-item strong { color: var(--text); display: block; font-size: 0.9rem; }
+
+  /* Polymarket */
+  .poly-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .poly-item:last-child { border-bottom: none; }
+  .poly-q { font-size: 0.85rem; color: var(--text); max-width: 60%; }
+  .poly-pct {
+    font-size: 1.2rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .poly-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  /* Contradiction Box */
+  .insight-box {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: var(--muted);
+    margin-top: 14px;
+  }
+  .insight-box strong { color: var(--text); }
+
+  /* Summary row */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  @media (max-width: 700px) {
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .summary-card {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+  .summary-icon { font-size: 1.4rem; margin-bottom: 4px; }
+  .summary-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+  .summary-val { font-size: 1.1rem; font-weight: 700; }
+
+  /* SPX box */
+  .spx-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .spx-price { font-size: 2.4rem; font-weight: 800; line-height: 1; }
+  .spx-chg { font-size: 0.9rem; padding: 3px 8px; border-radius: 6px; }
+
+  /* Range bar */
+  .range-wrap { margin: 16px 0 8px; }
+  .range-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
+  .range-track { background: var(--border); border-radius: 6px; height: 6px; position: relative; }
+  .range-fill { height: 100%; border-radius: 6px; }
+  .range-marker {
+    position: absolute;
+    top: -4px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+    transform: translateX(-50%);
+  }
+
+  /* Timeline */
+  .timeline { margin-top: 14px; }
+  .tl-item {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    font-size: 0.8rem;
+  }
+  .tl-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+  .tl-date { color: var(--muted); width: 50px; flex-shrink: 0; }
+  .tl-text { color: var(--text); }
+
+  /* Footer */
+  .footer {
+    margin-top: 24px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: gap;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  /* Animated number */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .card { animation: fadeUp 0.4s ease both; }
+  .card:nth-child(2) { animation-delay: 0.06s; }
+  .card:nth-child(3) { animation-delay: 0.12s; }
+  .card:nth-child(4) { animation-delay: 0.18s; }
+  .card:nth-child(5) { animation-delay: 0.24s; }
+  .card:nth-child(6) { animation-delay: 0.30s; }
+
+  /* Pulse dot */
+  .live-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-right: 5px;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  /* Contradiction signal */
+  .signal-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+  .signal-bull { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+  .signal-bear { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+  .signal-neutral { background: rgba(245,158,11,0.15); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>美股 <span>情绪仪表盘</span></h1>
+    <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">
+      <span class="live-dot"></span>数据综合自 CNN · AAII · CBOE · Polymarket
+    </div>
+  </div>
+  <div class="date">
+    <strong>2026年9月18日</strong>
+    周四 · 美东时间
+  </div>
+</div>
+
+<!-- Summary row -->
+<div class="summary-grid" style="margin-bottom:20px;">
+  <div class="summary-card">
+    <div class="summary-icon">😰</div>
+    <div class="summary-label">整体情绪</div>
+    <div class="summary-val" style="color:var(--red);">恐惧</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-icon">📊</div>
+    <div class="summary-label">SPX 昨收</div>
+    <div class="summary-val">7,637.76</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-icon">🎯</div>
+    <div class="summary-label">今日涨概率</div>
+    <div class="summary-val" style="color:var(--green);">72%</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-icon">⚡</div>
+    <div class="summary-label">VIX</div>
+    <div class="summary-val" style="color:var(--yellow);">~15.8</div>
+  </div>
+</div>
+
+<div class="grid">
+
+  <!-- Fear & Greed -->
+  <div class="card red col-4">
+    <div class="card-label">CNN · 实时</div>
+    <div class="card-title">恐惧贪婪指数</div>
+    <div class="gauge-wrap">
+      <svg class="gauge-svg" viewBox="0 0 260 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Track segments -->
+        <path d="M 20 130 A 110 110 0 0 1 67 33" stroke="#ef4444" stroke-width="16" stroke-linecap="round" fill="none" opacity="0.3"/>
+        <path d="M 67 33 A 110 110 0 0 1 130 20" stroke="#f97316" stroke-width="16" stroke-linecap="round" fill="none" opacity="0.3"/>
+        <path d="M 130 20 A 110 110 0 0 1 193 33" stroke="#f59e0b" stroke-width="16" stroke-linecap="round" fill="none" opacity="0.3"/>
+        <path d="M 193 33 A 110 110 0 0 1 240 130" stroke="#10b981" stroke-width="16" stroke-linecap="round" fill="none" opacity="0.3"/>
+
+        <!-- Active arc (0-29 of 180 degrees => 29/100 * 180 = 52.2 deg) -->
+        <!-- Value = 29, angle from -180deg: -180 + (29/100)*180 = -180+52.2 = -127.8 -->
+        <path d="M 20 130 A 110 110 0 0 1 67 33" stroke="#ef4444" stroke-width="16" stroke-linecap="round" fill="none"/>
+
+        <!-- Needle -->
+        <!-- 29 out of 100 = 29% of 180 degrees = 52.2 deg from left -->
+        <!-- From center (130,130), angle = 180 - 52.2 = 127.8 deg from positive x-axis (pointing left-ish) -->
+        <line id="needle" x1="130" y1="130" x2="51" y2="76" stroke="white" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="130" cy="130" r="8" fill="#1a2235" stroke="white" stroke-width="2"/>
+
+        <!-- Labels -->
+        <text x="14" y="148" fill="#ef4444" font-size="10" font-family="sans-serif">极度恐惧</text>
+        <text x="100" y="15" fill="#f59e0b" font-size="10" font-family="sans-serif" text-anchor="middle">中性</text>
+        <text x="200" y="148" fill="#10b981" font-size="10" font-family="sans-serif" text-anchor="end">极度贪婪</text>
+      </svg>
+      <div class="gauge-value" style="color:var(--red);" id="fg-num">29</div>
+      <div><span class="gauge-label fear">恐惧</span></div>
+      <div class="gauge-sub">7月以来最低 · 距历史高点仅 2.7%</div>
+    </div>
+    <div class="insight-box">
+      <strong>价格−情绪背离：</strong>SPX 在 ~7,600（距全时高点 7,799 仅 2.7%），<br>
+      但情绪却逼近<strong style="color:var(--red);">极度恐惧</strong>区间（&lt;25）。这种背离历史上是<strong style="color:var(--green);">逆向买入信号</strong>。
+    </div>
+  </div>
+
+  <!-- AAII -->
+  <div class="card yellow col-4">
+    <div class="card-label">AAII 散户调查 · 截至 9/16（今日最新）</div>
+    <div class="card-title">个人投资者情绪</div>
+    <div class="aaii-bars">
+      <div class="bar-row">
+        <div class="bar-row-head">
+          <span class="name">🐂 看涨 Bullish</span>
+          <span class="val" style="color:var(--green);">44.9% <span style="color:var(--muted);font-size:0.75rem;font-weight:400">均值 37.5% ▲+8.6pp</span></span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:44.9%;background:var(--green);"></div>
+          <div class="bar-avg-line" style="left:37.5%"></div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-row-head">
+          <span class="name">➡️ 中性 Neutral</span>
+          <span class="val" style="color:var(--yellow);">22.2% <span style="color:var(--muted);font-size:0.75rem;font-weight:400">均值 31.0%</span></span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:22.2%;background:var(--yellow);"></div>
+          <div class="bar-avg-line" style="left:31%"></div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-row-head">
+          <span class="name">🐻 看跌 Bearish</span>
+          <span class="val" style="color:var(--red);">32.9% <span style="color:var(--muted);font-size:0.75rem;font-weight:400">均值 31.5% ▼-6.4pp</span></span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:32.9%;background:var(--red);"></div>
+          <div class="bar-avg-line" style="left:31.5%"></div>
+        </div>
+      </div>
+    </div>
+    <div class="avg-note"><span class="avg-dash"></span> 白线为历史均值</div>
+    <div class="insight-box" style="margin-top:12px;">
+      <strong style="color:var(--green);">情绪急转乐观：</strong>Fed 9/16 加息靴子落地后，看涨大幅跳升至 44.9%（近9周高点），看跌骤降至 32.9%。市场消化了加息预期，情绪由恐惧转向<strong style="color:var(--green);">乐观</strong>。
+    </div>
+  </div>
+
+  <!-- VIX -->
+  <div class="card blue col-4">
+    <div class="card-label">CBOE · 9/18 实时</div>
+    <div class="card-title">VIX 恐慌指数</div>
+    <div class="vix-big" style="color:var(--yellow);">16.47</div>
+    <div style="font-size:0.8rem;color:var(--muted);margin-bottom:12px;">较前日 +0.06% · 前收 16.46 · 处于正常区间</div>
+
+    <div class="range-wrap">
+      <div class="range-label">
+        <span>52周低 13.38</span>
+        <span>52周高 35.30</span>
+      </div>
+      <div class="range-track">
+        <!-- Gradient track -->
+        <div class="range-fill" style="width:100%;background:linear-gradient(90deg,var(--green),var(--yellow),var(--red));"></div>
+        <!-- Marker at (16.47-13.38)/(35.30-13.38) = 14.1% -->
+        <div class="range-marker" style="left:14.1%;background:white;"></div>
+      </div>
+    </div>
+
+    <div class="vix-range">
+      <div class="vix-range-item"><span style="color:var(--green)">●</span> &lt;15 <strong>低恐慌</strong></div>
+      <div class="vix-range-item"><span style="color:var(--yellow)">●</span> 15–25 <strong>正常</strong></div>
+      <div class="vix-range-item"><span style="color:var(--orange)">●</span> 25–35 <strong>波动</strong></div>
+      <div class="vix-range-item"><span style="color:var(--red)">●</span> &gt;35 <strong>恐慌</strong></div>
+    </div>
+
+    <div class="insight-box" style="margin-top:12px;">
+      <strong>期权市场不慌：</strong>VIX ~15 说明机构对冲盘未大量买入保护。专业资金与散户情绪出现<strong style="color:var(--yellow);">明显分歧</strong>。
+    </div>
+  </div>
+
+  <!-- Polymarket -->
+  <div class="card green col-6">
+    <div class="card-label">Polymarket 预测市场</div>
+    <div class="card-title">实时赔率 · 资金背书</div>
+
+    <div class="poly-item">
+      <div class="poly-q">📅 SPX <strong>9月18日</strong>（今日）收涨</div>
+      <div class="poly-pct" style="color:var(--green);">
+        <span class="poly-dot" style="background:var(--green);"></span>72% Up
+        <span class="signal-tag signal-bull">偏多</span>
+      </div>
+    </div>
+    <div class="poly-item">
+      <div class="poly-q">🔔 SPX 9月18日<strong>开盘</strong>高开</div>
+      <div class="poly-pct" style="color:var(--green);">
+        <span class="poly-dot" style="background:var(--green);"></span>79% Up
+        <span class="signal-tag signal-bull">强偏多</span>
+      </div>
+    </div>
+    <div class="poly-item">
+      <div class="poly-q">📈 S&P500 年末收高于 <strong>6,000</strong></div>
+      <div class="poly-pct" style="color:var(--green);">
+        <span class="poly-dot" style="background:var(--green);"></span>58–64%
+      </div>
+    </div>
+    <div class="poly-item">
+      <div class="poly-q">📉 S&P500 年内跌超 <strong>20%</strong>（熊市）</div>
+      <div class="poly-pct" style="color:var(--red);">
+        <span class="poly-dot" style="background:var(--red);"></span>18–24%
+        <span class="signal-tag signal-bear">低概率</span>
+      </div>
+    </div>
+    <div class="poly-item">
+      <div class="poly-q">🏦 美国 <strong>2026年内衰退</strong></div>
+      <div class="poly-pct" style="color:var(--yellow);">
+        <span class="poly-dot" style="background:var(--yellow);"></span>14%
+        <span class="signal-tag signal-neutral">低风险</span>
+      </div>
+    </div>
+    <div class="poly-item">
+      <div class="poly-q">✂️ 2026年 Fed <strong>降息次数 = 0</strong></div>
+      <div class="poly-pct" style="color:var(--orange);">
+        <span class="poly-dot" style="background:var(--orange);"></span>95%
+        <span class="signal-tag" style="background:rgba(249,115,22,0.15);color:var(--orange);border:1px solid rgba(249,115,22,0.3);">压制因素</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPX Daily + Timeline -->
+  <div class="card purple col-6">
+    <div class="card-label">S&P 500 · 每日精确收盘</div>
+    <div class="card-title">近期交易日记录</div>
+
+    <!-- SPX daily close table -->
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem;margin-bottom:14px;">
+      <thead>
+        <tr style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.8px;">
+          <th style="text-align:left;padding:4px 0;font-weight:400;">日期</th>
+          <th style="text-align:right;padding:4px 0;font-weight:400;">收盘</th>
+          <th style="text-align:right;padding:4px 0;font-weight:400;">涨跌</th>
+          <th style="text-align:right;padding:4px 0;font-weight:400;">涨跌幅</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-top:1px solid var(--border);">
+          <td style="padding:7px 0;color:var(--muted);">9月11日 周四</td>
+          <td style="text-align:right;font-weight:600;">7,609.43</td>
+          <td style="text-align:right;color:var(--green);">+102.15</td>
+          <td style="text-align:right;color:var(--green);">+1.36%</td>
+        </tr>
+        <tr style="border-top:1px solid var(--border);">
+          <td style="padding:7px 0;color:var(--muted);">9月12日 周五</td>
+          <td style="text-align:right;font-weight:600;">7,585.72</td>
+          <td style="text-align:right;color:var(--red);">-23.71</td>
+          <td style="text-align:right;color:var(--red);">-0.31%</td>
+        </tr>
+        <tr style="border-top:1px solid var(--border);">
+          <td style="padding:7px 0;color:var(--muted);">9月15日 周一</td>
+          <td style="text-align:right;font-weight:600;">7,562.18</td>
+          <td style="text-align:right;color:var(--red);">-23.54</td>
+          <td style="text-align:right;color:var(--red);">-0.31%</td>
+        </tr>
+        <tr style="border-top:1px solid var(--border);">
+          <td style="padding:7px 0;color:var(--muted);">9月16日 周二</td>
+          <td style="text-align:right;font-weight:600;">7,585.64</td>
+          <td style="text-align:right;color:var(--green);">+23.46</td>
+          <td style="text-align:right;color:var(--green);">+0.31%</td>
+        </tr>
+        <tr style="border-top:1px solid var(--border);">
+          <td style="padding:7px 0;color:var(--muted);">9月17日 周三</td>
+          <td style="text-align:right;font-weight:600;">7,637.76</td>
+          <td style="text-align:right;color:var(--green);">+52.12</td>
+          <td style="text-align:right;color:var(--green);">+0.69%</td>
+        </tr>
+        <tr style="border-top:1px solid var(--border);background:rgba(59,130,246,0.06);">
+          <td style="padding:7px 0;font-weight:700;">9月18日 今日 ▶</td>
+          <td style="text-align:right;font-weight:800;color:var(--red);">7,551.81</td>
+          <td style="text-align:right;color:var(--red);">-85.95</td>
+          <td style="text-align:right;color:var(--red);">-1.13%</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:0.75rem;color:var(--muted);">
+      来源：MarketWatch 实时 · SPX 今日小幅回调 -0.45%，在 Fed 加息后市场正常消化，仍处历史高位区间附近
+    </div>
+  </div>
+
+  <!-- Year-end SPX distribution -->
+  <div class="card orange col-12">
+    <div class="card-label">Polymarket · 年末 SPX 点位分布预测</div>
+    <div class="card-title" style="margin-bottom:18px;">S&P 500 2026年底收盘区间概率</div>
+    <div style="display:flex;gap:8px;align-items:flex-end;height:90px;padding-bottom:4px;">
+      <!-- Bar chart: < 6500 = 7%, 6500-7000=10%, 7000-7500=17%, 7500-8000=29%, >8000=36% (adjusted) -->
+      <div style="flex:1;text-align:center;">
+        <div style="background:rgba(239,68,68,0.6);height:19px;border-radius:4px 4px 0 0;margin-bottom:4px;position:relative;">
+          <div style="position:absolute;top:-18px;width:100%;text-align:center;font-size:0.7rem;color:var(--red);font-weight:700;">7%</div>
+        </div>
+        <div style="font-size:0.65rem;color:var(--muted);">&lt;$6,500</div>
+      </div>
+      <div style="flex:1;text-align:center;">
+        <div style="background:rgba(249,115,22,0.6);height:28px;border-radius:4px 4px 0 0;margin-bottom:4px;position:relative;">
+          <div style="position:absolute;top:-18px;width:100%;text-align:center;font-size:0.7rem;color:var(--orange);font-weight:700;">10%</div>
+        </div>
+        <div style="font-size:0.65rem;color:var(--muted);">$6.5K–7K</div>
+      </div>
+      <div style="flex:1;text-align:center;">
+        <div style="background:rgba(245,158,11,0.6);height:47px;border-radius:4px 4px 0 0;margin-bottom:4px;position:relative;">
+          <div style="position:absolute;top:-18px;width:100%;text-align:center;font-size:0.7rem;color:var(--yellow);font-weight:700;">17%</div>
+        </div>
+        <div style="font-size:0.65rem;color:var(--muted);">$7K–7.5K</div>
+      </div>
+      <div style="flex:1;text-align:center;">
+        <div style="background:rgba(59,130,246,0.7);height:81px;border-radius:4px 4px 0 0;margin-bottom:4px;position:relative;">
+          <div style="position:absolute;top:-18px;width:100%;text-align:center;font-size:0.7rem;color:var(--blue);font-weight:700;">29%</div>
+        </div>
+        <div style="font-size:0.65rem;color:var(--muted);">$7.5K–8K</div>
+      </div>
+      <div style="flex:1;text-align:center;">
+        <div style="background:rgba(16,185,129,0.8);height:90px;border-radius:4px 4px 0 0;margin-bottom:4px;position:relative;border:2px solid var(--green);">
+          <div style="position:absolute;top:-18px;width:100%;text-align:center;font-size:0.7rem;color:var(--green);font-weight:700;">36% ★</div>
+        </div>
+        <div style="font-size:0.65rem;color:var(--green);font-weight:600;">&gt;$8,000</div>
+      </div>
+    </div>
+    <div style="margin-top:12px;font-size:0.78rem;color:var(--muted);">
+      市场集中押注 <strong style="color:var(--green);">年末 &gt;$8,000</strong>（36%，当前 ~7,600），看多情绪主导长线预期。短线情绪恐惧 vs 长线预期看涨——典型的"爬墙之忧"格局。
+    </div>
+  </div>
+
+</div>
+
+<!--综合结论 -->
+<div style="margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;">
+  <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px;">综合结论</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+    <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px;">
+      <div style="color:var(--green);font-weight:700;margin-bottom:6px;">🟢 利多信号</div>
+      <ul style="font-size:0.8rem;color:var(--muted);line-height:1.8;padding-left:16px;">
+        <li>价格强（距高点 &lt;3%）</li>
+        <li>VIX 低，机构不慌</li>
+        <li>散户过度悲观（逆向）</li>
+        <li>Polymarket 今日 72% 看涨</li>
+        <li>衰退概率仅 14%</li>
+      </ul>
+    </div>
+    <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:14px;">
+      <div style="color:var(--red);font-weight:700;margin-bottom:6px;">🔴 利空风险</div>
+      <ul style="font-size:0.8rem;color:var(--muted);line-height:1.8;padding-left:16px;">
+        <li>Fed 9/16 加息 25bp</li>
+        <li>2026全年零降息概率 95%</li>
+        <li>CNN F&G 仍在恐惧区</li>
+        <li>熊市概率 18–24% 不低</li>
+      </ul>
+    </div>
+    <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:14px;">
+      <div style="color:var(--blue);font-weight:700;margin-bottom:6px;">🔵 核心矛盾</div>
+      <ul style="font-size:0.8rem;color:var(--muted);line-height:1.8;padding-left:16px;">
+        <li>短线情绪恐惧 ≠ 长线预期看涨</li>
+        <li>散户悲观 ≠ 机构（VIX）不担忧</li>
+        <li>加息 → 市场反而靠近高点</li>
+        <li>"爬忧虑之墙"模式持续</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>数据来源：CNN Fear & Greed Index · AAII Sentiment Survey · CBOE VIX · Polymarket</span>
+  <span>仅供参考，不构成投资建议 · 更新时间：2026-09-18</span>
+</div>
+
+<script>
+// Animate gauge number
+function animateValue(el, start, end, duration) {
+  let startTime = null;
+  function step(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const progress = Math.min((timestamp - startTime) / duration, 1);
+    el.textContent = Math.floor(progress * (end - start) + start);
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+const fgNum = document.getElementById('fg-num');
+if (fgNum) animateValue(fgNum, 0, 29, 1200);
+
+// Animate bar fills
+document.querySelectorAll('.bar-fill').forEach(bar => {
+  const w = bar.style.width;
+  bar.style.width = '0';
+  setTimeout(() => { bar.style.width = w; }, 300);
+});
+</script>
+</body>
+</html>
