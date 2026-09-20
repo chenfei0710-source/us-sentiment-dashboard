@@ -553,28 +553,28 @@
           <td style="text-align:right;color:var(--green);">+1.36%</td>
         </tr>
         <tr style="border-top:1px solid var(--border);">
-          <td style="padding:7px 0;color:var(--muted);">9月12日 周五</td>
-          <td style="text-align:right;font-weight:600;">7,585.72</td>
-          <td style="text-align:right;color:var(--red);">-23.71</td>
-          <td style="text-align:right;color:var(--red);">-0.31%</td>
+          <td style="padding:7px 0;color:var(--muted);">9月14日 周一</td>
+          <td style="text-align:right;font-weight:600;">7,619.98</td>
+          <td style="text-align:right;color:var(--red);">-36.75</td>
+          <td style="text-align:right;color:var(--red);">-0.48%</td>
         </tr>
         <tr style="border-top:1px solid var(--border);">
-          <td style="padding:7px 0;color:var(--muted);">9月15日 周一</td>
-          <td style="text-align:right;font-weight:600;">7,562.18</td>
-          <td style="text-align:right;color:var(--red);">-23.54</td>
-          <td style="text-align:right;color:var(--red);">-0.31%</td>
+          <td style="padding:7px 0;color:var(--muted);">9月15日 周二</td>
+          <td style="text-align:right;font-weight:600;">7,585.73</td>
+          <td style="text-align:right;color:var(--red);">-34.25</td>
+          <td style="text-align:right;color:var(--red);">-0.45%</td>
         </tr>
         <tr style="border-top:1px solid var(--border);">
-          <td style="padding:7px 0;color:var(--muted);">9月16日 周二</td>
-          <td style="text-align:right;font-weight:600;">7,585.64</td>
-          <td style="text-align:right;color:var(--green);">+23.46</td>
-          <td style="text-align:right;color:var(--green);">+0.31%</td>
+          <td style="padding:7px 0;color:var(--muted);">9月16日 周三</td>
+          <td style="text-align:right;font-weight:600;">7,551.81</td>
+          <td style="text-align:right;color:var(--red);">-33.92</td>
+          <td style="text-align:right;color:var(--red);">-0.45%</td>
         </tr>
         <tr style="border-top:1px solid var(--border);">
-          <td style="padding:7px 0;color:var(--muted);">9月17日 周三</td>
+          <td style="padding:7px 0;color:var(--muted);">9月17日 周四</td>
           <td style="text-align:right;font-weight:600;">7,637.76</td>
-          <td style="text-align:right;color:var(--green);">+52.12</td>
-          <td style="text-align:right;color:var(--green);">+0.69%</td>
+          <td style="text-align:right;color:var(--green);">+85.95</td>
+          <td style="text-align:right;color:var(--green);">+1.14%</td>
         </tr>
         <tr style="border-top:1px solid var(--border);background:rgba(59,130,246,0.06);">
           <td style="padding:7px 0;font-weight:700;">9月18日 今日 ▶</td>
@@ -696,11 +696,11 @@
 (function() {
   // 近30个交易日数据（8月初 ~ 9月18日）
   // 随tracker.py积累后自动替换为真实数据
-  // 仅使用仪表盘表格中确认的真实数据（tracker.py 每日自动追加）
-  const labels = ['9/11','9/12','9/15','9/16','9/17','9/18'];
-  const fg =     [  39,    38,    36,    35,    33,    29  ];
-  const vix =    [ 18.8,  19.2,  19.8,  18.9,  17.6,  16.5];
-  const spxChg = [ 1.36, -0.31, -0.31,  0.31,  0.69, -1.13];
+  // 真实历史数据（来源：Yahoo Finance / Investing.com）
+  const labels  = ['8/3','8/4','8/5','8/6','8/7','8/10','8/11','8/12','8/13','8/14','8/17','8/18','8/19','8/20','8/21','8/24','8/25','8/26','8/27','8/28','8/31','9/1','9/2','9/3','9/4','9/8','9/9','9/10','9/11','9/14','9/15','9/16','9/17'];
+  const fg      = [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,29];
+  const vix     = [null,null,null,null,14.90,15.46,15.28,14.55,14.63,14.25,15.19,15.84,14.89,16.01,15.13,15.85,15.45,15.21,14.51,14.43,14.92,16.34,15.20,14.32,14.53,15.72,16.46,17.84,15.84,17.71,null,15.26,15.44];
+  const spxChg  = [1.48,1.79,-0.17,-0.18,0.62,-0.06,-0.32,0.26,0.65,-0.17,-0.52,-0.69,0.21,-0.87,0.43,-0.28,0.32,-0.02,0.72,-0.25,-0.33,-0.71,0.46,1.06,-0.38,-0.58,-0.48,-0.58,0.86,-0.48,-0.45,-0.45,1.14];
 
   const ctx = document.getElementById('sentimentChart');
   if (!ctx) return;
