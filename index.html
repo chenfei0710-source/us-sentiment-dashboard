@@ -577,10 +577,10 @@
           <td style="text-align:right;color:var(--green);">+1.14%</td>
         </tr>
         <tr style="border-top:1px solid var(--border);background:rgba(59,130,246,0.06);">
-          <td style="padding:7px 0;font-weight:700;">9月18日 今日 ▶</td>
-          <td style="text-align:right;font-weight:800;color:var(--red);">7,551.81</td>
-          <td style="text-align:right;color:var(--red);">-85.95</td>
-          <td style="text-align:right;color:var(--red);">-1.13%</td>
+          <td style="padding:7px 0;font-weight:700;">9月18日 周五</td>
+          <td style="text-align:right;font-weight:800;color:var(--green);">7,650.50</td>
+          <td style="text-align:right;color:var(--green);">+12.74</td>
+          <td style="text-align:right;color:var(--green);">+0.17%</td>
         </tr>
       </tbody>
     </table>
@@ -697,10 +697,11 @@
   // 近30个交易日数据（8月初 ~ 9月18日）
   // 随tracker.py积累后自动替换为真实数据
   // 真实历史数据（来源：Yahoo Finance / Investing.com）
-  const labels  = ['8/3','8/4','8/5','8/6','8/7','8/10','8/11','8/12','8/13','8/14','8/17','8/18','8/19','8/20','8/21','8/24','8/25','8/26','8/27','8/28','8/31','9/1','9/2','9/3','9/4','9/8','9/9','9/10','9/11','9/14','9/15','9/16','9/17'];
-  const fg      = [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,29];
-  const vix     = [null,null,null,null,14.90,15.46,15.28,14.55,14.63,14.25,15.19,15.84,14.89,16.01,15.13,15.85,15.45,15.21,14.51,14.43,14.92,16.34,15.20,14.32,14.53,15.72,16.46,17.84,15.84,17.71,null,15.26,15.44];
-  const spxChg  = [1.48,1.79,-0.17,-0.18,0.62,-0.06,-0.32,0.26,0.65,-0.17,-0.52,-0.69,0.21,-0.87,0.43,-0.28,0.32,-0.02,0.72,-0.25,-0.33,-0.71,0.46,1.06,-0.38,-0.58,-0.48,-0.58,0.86,-0.48,-0.45,-0.45,1.14];
+  // 真实历史数据（来源：Yahoo Finance / Investing.com）
+  const labels  = ['8/3','8/4','8/5','8/6','8/7','8/10','8/11','8/12','8/13','8/14','8/17','8/18','8/19','8/20','8/21','8/24','8/25','8/26','8/27','8/28','8/31','9/1','9/2','9/3','9/4','9/8','9/9','9/10','9/11','9/14','9/15','9/16','9/17','9/18'];
+  const fg      = [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,29,29];
+  const vix     = [null,null,null,null,14.90,15.46,15.28,14.55,14.63,14.25,15.19,15.84,14.89,16.01,15.13,15.85,15.45,15.21,14.51,14.43,14.92,16.34,15.20,14.32,14.53,15.72,16.46,17.84,15.84,17.71,null,15.26,15.44,14.81];
+  const spxChg  = [1.48,1.79,-0.17,-0.18,0.62,-0.06,-0.32,0.26,0.65,-0.17,-0.52,-0.69,0.21,-0.87,0.43,-0.28,0.32,-0.02,0.72,-0.25,-0.33,-0.71,0.46,1.06,-0.38,-0.58,-0.48,-0.58,0.86,-0.48,-0.45,-0.45,1.14,0.17];
 
   const ctx = document.getElementById('sentimentChart');
   if (!ctx) return;
