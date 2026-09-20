@@ -2,8 +2,13 @@ name: 美股情绪仪表盘每日更新
 
 on:
   schedule:
-    - cron: "30 20 * * 1-5"  # UTC 20:30 = 美东 16:30（收盘后）= 北京次日 04:30，周一至周五
-  workflow_dispatch:          # 支持手动触发
+    - cron: "0 8 * * 1-5"   # 盘前：UTC 08:00 = 北京 16:00（更新 F&G/VIX/AAII/Polymarket）
+    - cron: "30 20 * * 1-5"  # 盘后：UTC 20:30 = 美东 16:30（更新 SPX 当日收盘）
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "运行模式: pre / post"
+        default: "pre"
 
 jobs:
   update:
@@ -19,8 +24,17 @@ jobs:
       - name: Install dependencies
         run: pip install requests yfinance pytz
 
-      - name: Run sentiment tracker
+      - name: Run sentiment tracker (pre-market, UTC 08:00)
+        if: github.event.schedule == '0 8 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'pre')
         run: python tracker.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USER: chenfei0710-source
+          GITHUB_REPO: us-sentiment-dashboard
+
+      - name: Run sentiment tracker (post-market SPX close, UTC 20:30)
+        if: github.event.schedule == '30 20 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'post')
+        run: python tracker.py --post-market
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_USER: chenfei0710-source
@@ -31,5 +45,5 @@ jobs:
           git config user.name "Sentiment Bot"
           git config user.email "bot@users.noreply.github.com"
           git add index.html us_sentiment_history.json
-          git diff --cached --quiet || git commit -m "自动更新 $(date +%Y-%m-%d)"
+          git diff --cached --quiet || git commit -m "自动更新 $(date +%Y-%m-%d) ${{ github.event.schedule == '30 20 * * 1-5' && '盘后SPX' || '盘前情绪' }}"
           git push
