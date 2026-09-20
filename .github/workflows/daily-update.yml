@@ -2,12 +2,12 @@ name: 美股情绪仪表盘每日更新
 
 on:
   schedule:
-    - cron: "0 8 * * 1-5"   # 盘前：UTC 08:00 = 北京 16:00（更新 F&G/VIX/AAII/Polymarket）
-    - cron: "30 20 * * 1-5"  # 盘后：UTC 20:30 = 美东 16:30（更新 SPX 当日收盘）
+    - cron: "0 8 * * 1-5"    # 盘前：UTC 08:00 = 北京 16:00（F&G/VIX/AAII/Polymarket）
+    - cron: "30 20 * * 1-5"   # 盘后：UTC 20:30 = 美东 16:30（SPX 当日收盘）
   workflow_dispatch:
     inputs:
       mode:
-        description: "运行模式: pre / post"
+        description: "pre / post"
         default: "pre"
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: pip install requests yfinance pytz
 
-      - name: Run sentiment tracker (pre-market, UTC 08:00)
+      - name: Run pre-market update
         if: github.event.schedule == '0 8 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'pre')
         run: python tracker.py
         env:
@@ -32,7 +32,7 @@ jobs:
           GITHUB_USER: chenfei0710-source
           GITHUB_REPO: us-sentiment-dashboard
 
-      - name: Run sentiment tracker (post-market SPX close, UTC 20:30)
+      - name: Run post-market SPX update
         if: github.event.schedule == '30 20 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'post')
         run: python tracker.py --post-market
         env:
@@ -40,10 +40,20 @@ jobs:
           GITHUB_USER: chenfei0710-source
           GITHUB_REPO: us-sentiment-dashboard
 
-      - name: Commit and push updated dashboard
+      - name: Validate status.json
+        run: |
+          if [ -f us_sentiment_status.json ]; then
+            DATA_OK=$(python3 -c "import json; s=json.load(open('us_sentiment_status.json')); print(s.get('data_ok', False))")
+            echo "data_ok=$DATA_OK"
+            if [ "$DATA_OK" = "False" ]; then
+              echo "::warning::数据全部 fallback，数据源可能不可用"
+            fi
+          fi
+
+      - name: Commit and push
         run: |
           git config user.name "Sentiment Bot"
           git config user.email "bot@users.noreply.github.com"
-          git add index.html us_sentiment_history.json
-          git diff --cached --quiet || git commit -m "自动更新 $(date +%Y-%m-%d) ${{ github.event.schedule == '30 20 * * 1-5' && '盘后SPX' || '盘前情绪' }}"
+          git add index.html us_sentiment_history.json status.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "自动更新 $(date +%Y-%m-%d)"
           git push
