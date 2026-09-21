@@ -632,8 +632,15 @@ def main():
 
     if mode == "post":
         # 盘后：只抓 SPX 收盘
-        spx = fetch_spx()
-        print(f"  SPX 收盘: {spx['close']} ({spx['chg_pct']:+}%)")
+        spx_new = fetch_spx()
+        last_good = history[-1] if history else {}
+        # fallback 不上线，保留上次已知正确值
+        if spx_new != FALLBACKS["spx"]:
+            spx = spx_new
+            print(f"  SPX 收盘: {spx['close']} ({spx['chg_pct']:+}%)")
+        else:
+            spx = {**FALLBACKS["spx"], "close": last_good.get("spx_close", FALLBACKS["spx"]["close"]), "chg_pct": last_good.get("spx_chg", 0.0)}
+            print(f"  SPX 收盘: 获取失败，保留上次已知值 {spx['close']}  [保留上次]")
         today_data = {**today_base, "spx_close": spx["close"], "spx_chg": spx["chg_pct"]}
         # 重新读取其他字段用于渲染 HTML
         fg   = {"score": today_base.get("fg_score", 29), "rating": today_base.get("fg_rating", "Fear"), "prev": 31}
@@ -643,22 +650,38 @@ def main():
         poly = {"up": today_base.get("poly_up", 50), "down": 100 - today_base.get("poly_up", 50), "found": False}
     else:
         # 盘前：更新情绪指标，SPX 取前日收盘
-        fg   = fetch_fear_greed()
-        vix  = fetch_vix()
-        spx  = fetch_spx()
-        aaii = fetch_aaii()
-        poly = fetch_polymarket_spx_today()
-        print(f"  F&G: {fg['score']} ({fg['rating']})")
-        print(f"  VIX: {vix['close']}")
-        print(f"  SPX(前日): {spx['close']} ({spx['chg_pct']:+}%)")
+        fg_new   = fetch_fear_greed()
+        vix_new  = fetch_vix()
+        spx_new  = fetch_spx()
+        aaii_new = fetch_aaii()
+        poly_new = fetch_polymarket_spx_today()
+
+        # ── 核心原则：fallback 值不覆盖已知正确数据 ──────────────────
+        # 取上一条历史记录作为"已知正确值"兜底
+        last_good = history[-1] if history else {}
+
+        def _use_real(new_val, fallback_val, last_key, last_hist):
+            """若新值 == fallback，保留上次已知值；否则用新值"""
+            return new_val if new_val != fallback_val else last_hist.get(last_key, new_val)
+
+        fg   = fg_new   if fg_new   != FALLBACKS["fg"]   else {"score": last_good.get("fg_score", FALLBACKS["fg"]["score"]), "rating": last_good.get("fg_rating", FALLBACKS["fg"]["rating"]), "prev": FALLBACKS["fg"]["prev"]}
+        vix  = vix_new  if vix_new  != FALLBACKS["vix"]  else {**FALLBACKS["vix"],  "close": last_good.get("vix_close", FALLBACKS["vix"]["close"])}
+        spx  = spx_new  if spx_new  != FALLBACKS["spx"]  else {**FALLBACKS["spx"],  "close": last_good.get("spx_close", FALLBACKS["spx"]["close"]), "chg_pct": last_good.get("spx_chg", 0.0)}
+        aaii = aaii_new if aaii_new != FALLBACKS["aaii"] else {"bullish": last_good.get("aaii_bull", FALLBACKS["aaii"]["bullish"]), "neutral": last_good.get("aaii_neutral", FALLBACKS["aaii"]["neutral"]), "bearish": last_good.get("aaii_bear", FALLBACKS["aaii"]["bearish"]), "week": last_good.get("aaii_week", "—")}
+        poly = poly_new if poly_new.get("found") else {"up": last_good.get("poly_up", FALLBACKS["poly"]["up"]), "down": 100 - last_good.get("poly_up", FALLBACKS["poly"]["up"]), "found": False}
+
+        print(f"  F&G: {fg['score']} ({fg['rating']}){'  [保留上次]' if fg_new==FALLBACKS['fg'] else ''}")
+        print(f"  VIX: {vix['close']}{'  [保留上次]' if vix_new==FALLBACKS['vix'] else ''}")
+        print(f"  SPX(前日): {spx['close']} ({spx['chg_pct']:+}%){'  [保留上次]' if spx_new==FALLBACKS['spx'] else ''}")
         print(f"  AAII: Bull {aaii['bullish']}% | Bear {aaii['bearish']}%")
-        print(f"  Polymarket 今日上涨: {poly['up']}%")
+        print(f"  Polymarket: {poly['up']}%{'  [保留上次]' if not poly_new.get('found') else ''}")
+
         today_data = {
             **today_base,
             "fg_score":     fg["score"],
             "fg_rating":    fg["rating"],
             "vix_close":    vix["close"],
-            "spx_close":    today_base.get("spx_close", spx["close"]),  # 保留已有收盘
+            "spx_close":    today_base.get("spx_close", spx["close"]),
             "spx_chg":      today_base.get("spx_chg",   spx["chg_pct"]),
             "aaii_bull":    aaii["bullish"],
             "aaii_neutral": aaii["neutral"],
