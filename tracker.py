@@ -13,8 +13,11 @@ import pytz
 import os
 import sys
 
-OUTPUT_HTML = "/Users/admin/us_sentiment_dashboard.html"
-DATA_LOG    = "/Users/admin/us_sentiment_history.json"
+# CI 环境（GitHub Actions）用相对路径，本地用绝对路径
+_IS_CI   = os.environ.get("CI") == "true"
+_BASE    = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_HTML = os.path.join(_BASE, "index.html")             if _IS_CI else "/Users/admin/us_sentiment_dashboard.html"
+DATA_LOG    = os.path.join(_BASE, "us_sentiment_history.json") if _IS_CI else "/Users/admin/us_sentiment_history.json"
 
 
 def _read_local_gh_token():
@@ -33,95 +36,107 @@ def _read_local_gh_token():
 # 1. 数据抓取
 # ─────────────────────────────────────────────
 
+FALLBACKS = {
+    "fg":   {"score": 29,    "rating": "Fear", "prev": 31},
+    "vix":  {"close": 15.84, "prev": 17.84, "high52": 35.30, "low52": 13.38},
+    "spx":  {"close": 7600,  "prev": 7580, "chg_pct": 0.0},
+    "aaii": {"bullish": 38.0, "neutral": 22.7, "bearish": 39.3, "week": "—"},
+    "poly": {"up": 50, "down": 50, "found": False},
+}
+
+def _retry(fn, label, retries=3, delay=8):
+    """重试包装：最多重试 retries 次，每次间隔 delay 秒"""
+    import time
+    for attempt in range(1, retries + 1):
+        try:
+            result = fn()
+            print(f"  [{label}] ✅ 第{attempt}次成功")
+            return result, True
+        except Exception as e:
+            print(f"  [{label}] ⚠️ 第{attempt}次失败: {e}")
+            if attempt < retries:
+                time.sleep(delay)
+    print(f"  [{label}] ❌ {retries}次均失败，使用 fallback")
+    return None, False
+
 def fetch_fear_greed():
     """CNN Fear & Greed Index"""
-    try:
+    def _fetch():
         url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata"
-        r = requests.get(url, timeout=10,
-                         headers={"User-Agent": "Mozilla/5.0"})
+        r = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
         data = r.json()
-        score = round(data["fear_and_greed"]["score"])
-        rating = data["fear_and_greed"]["rating"]
-        prev   = round(data["fear_and_greed"]["previous_close"])
-        return {"score": score, "rating": rating, "prev": prev}
-    except Exception as e:
-        print(f"[F&G] Error: {e}")
-        return {"score": 29, "rating": "Fear", "prev": 31}
+        return {
+            "score":  round(data["fear_and_greed"]["score"]),
+            "rating": data["fear_and_greed"]["rating"],
+            "prev":   round(data["fear_and_greed"]["previous_close"]),
+        }
+    result, ok = _retry(_fetch, "F&G")
+    return result if ok else FALLBACKS["fg"]
 
 def fetch_vix():
     """VIX 收盘价 via yfinance"""
-    try:
+    def _fetch():
         ticker = yf.Ticker("^VIX")
         hist = ticker.history(period="5d")
         if hist.empty:
-            return {"close": 15.84, "prev": 17.84, "high52": 35.30, "low52": 13.38}
-        close = round(hist["Close"].iloc[-1], 2)
-        prev  = round(hist["Close"].iloc[-2], 2) if len(hist) > 1 else close
-        info  = ticker.info
-        high52 = round(info.get("fiftyTwoWeekHigh", 35.30), 2)
-        low52  = round(info.get("fiftyTwoWeekLow",  13.38), 2)
-        return {"close": close, "prev": prev, "high52": high52, "low52": low52}
-    except Exception as e:
-        print(f"[VIX] Error: {e}")
-        return {"close": 15.84, "prev": 17.84, "high52": 35.30, "low52": 13.38}
+            raise ValueError("empty history")
+        close  = round(hist["Close"].iloc[-1], 2)
+        prev   = round(hist["Close"].iloc[-2], 2) if len(hist) > 1 else close
+        info   = ticker.info
+        return {
+            "close":  close, "prev": prev,
+            "high52": round(info.get("fiftyTwoWeekHigh", 35.30), 2),
+            "low52":  round(info.get("fiftyTwoWeekLow",  13.38), 2),
+        }
+    result, ok = _retry(_fetch, "VIX")
+    return result if ok else FALLBACKS["vix"]
 
 def fetch_spx():
     """SPX 收盘价 via yfinance"""
-    try:
+    def _fetch():
         ticker = yf.Ticker("^GSPC")
         hist = ticker.history(period="5d")
         if hist.empty:
-            return {"close": 7600, "prev": 7580, "chg_pct": 0.26}
-        close = round(hist["Close"].iloc[-1], 1)
-        prev  = round(hist["Close"].iloc[-2], 1) if len(hist) > 1 else close
+            raise ValueError("empty history")
+        close   = round(hist["Close"].iloc[-1], 2)
+        prev    = round(hist["Close"].iloc[-2], 2) if len(hist) > 1 else close
         chg_pct = round((close - prev) / prev * 100, 2)
         return {"close": close, "prev": prev, "chg_pct": chg_pct}
-    except Exception as e:
-        print(f"[SPX] Error: {e}")
-        return {"close": 7600, "prev": 7580, "chg_pct": 0.26}
+    result, ok = _retry(_fetch, "SPX")
+    return result if ok else FALLBACKS["spx"]
 
 def fetch_polymarket_spx_today():
     """Polymarket 当日 SPX 涨跌赔率（尝试 Gamma API）"""
-    try:
-        # 搜索今日 SPX Up/Down 市场
-        today_str = date.today().strftime("%B %-d")  # e.g. "September 18"
+    def _fetch():
+        today_str = date.today().strftime("%B %-d")
         url = "https://gamma-api.polymarket.com/markets"
-        params = {"limit": 50, "active": "true", "tag_id": "6"}
-        r = requests.get(url, params=params, timeout=10)
-        markets = r.json()
-        for m in markets:
+        r = requests.get(url, params={"limit": 50, "active": "true", "tag_id": "6"}, timeout=10)
+        for m in r.json():
             q = m.get("question", "")
             if "SPX" in q and "Up or Down" in q and today_str in q:
-                outcomes = json.loads(m.get("outcomePrices", "[]"))
+                outcomes      = json.loads(m.get("outcomePrices", "[]"))
                 outcome_names = json.loads(m.get("outcomes", "[]"))
                 if outcome_names and outcomes:
                     up_idx = next((i for i, n in enumerate(outcome_names) if n.lower() == "up"), 0)
-                    up_pct = round(float(outcomes[up_idx]) * 100)
-                    return {"up": up_pct, "down": 100 - up_pct, "found": True}
-        return {"up": 72, "down": 28, "found": False}
-    except Exception as e:
-        print(f"[Polymarket] Error: {e}")
-        return {"up": 72, "down": 28, "found": False}
+                    return {"up": round(float(outcomes[up_idx]) * 100), "down": 100 - round(float(outcomes[up_idx]) * 100), "found": True}
+        raise ValueError("market not found")
+    result, ok = _retry(_fetch, "Polymarket")
+    return result if ok else FALLBACKS["poly"]
 
 def fetch_aaii():
-    """
-    AAII 数据没有免费 API；返回最近已知值作为 fallback。
-    每周三更新，若有新数据会通过 web scrape 获取。
-    """
-    try:
+    """AAII 散户情绪；每周四更新"""
+    def _fetch():
         url = "https://www.aaii.com/sentimentsurvey/sent_results"
-        r = requests.get(url, timeout=10,
-                         headers={"User-Agent": "Mozilla/5.0"})
-        # 简单解析 JSON（AAII 有非官方端点）
+        r = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
         data = r.json()
-        bullish  = round(data.get("bullish",  38.0), 1)
-        neutral  = round(data.get("neutral",  22.7), 1)
-        bearish  = round(data.get("bearish",  39.3), 1)
-        week     = data.get("period", "9/9/2026")
-        return {"bullish": bullish, "neutral": neutral, "bearish": bearish, "week": week}
-    except Exception:
-        # fallback to most recent known values
-        return {"bullish": 38.0, "neutral": 22.7, "bearish": 39.3, "week": "9/9/2026"}
+        return {
+            "bullish": round(data.get("bullish", 38.0), 1),
+            "neutral": round(data.get("neutral", 22.7), 1),
+            "bearish": round(data.get("bearish", 39.3), 1),
+            "week":    data.get("period", "—"),
+        }
+    result, ok = _retry(_fetch, "AAII")
+    return result if ok else FALLBACKS["aaii"]
 
 # ─────────────────────────────────────────────
 # 2. 数据持久化
@@ -520,30 +535,53 @@ def main():
     now = datetime.now(et)
     now_str = now.strftime("%H:%M")
 
-    print(f"[{now_str} ET] 开始抓取情绪数据...")
+    # 运行模式：
+    #   --post-market  → 盘后，只更新 SPX 收盘涨跌幅
+    #   默认（盘前）   → 更新 F&G / VIX / AAII / Polymarket
+    mode = "post" if "--post-market" in sys.argv else "pre"
+    print(f"[{now_str} ET] 模式: {'盘后 SPX 收盘更新' if mode=='post' else '盘前情绪数据更新'}")
 
-    fg   = fetch_fear_greed()
-    vix  = fetch_vix()
-    spx  = fetch_spx()
-    aaii = fetch_aaii()
-    poly = fetch_polymarket_spx_today()
+    history = load_history()
+    date_str = date.today().isoformat()
+    # 取今日已有记录作为基础（盘后更新时保留盘前数据）
+    today_base = next((h for h in history if h["date"] == date_str), {})
 
-    print(f"  F&G: {fg['score']} ({fg['rating']})")
-    print(f"  VIX: {vix['close']}")
-    print(f"  SPX: {spx['close']} ({spx['chg_pct']}%)")
-    print(f"  AAII: Bull {aaii['bullish']}% | Neutral {aaii['neutral']}% | Bear {aaii['bearish']}%")
-    print(f"  Polymarket 今日上涨: {poly['up']}%")
-
-    today_data = {
-        "fg_score":  fg["score"],
-        "fg_rating": fg["rating"],
-        "vix_close": vix["close"],
-        "spx_close": spx["close"],
-        "spx_chg":   spx["chg_pct"],
-        "aaii_bull": aaii["bullish"],
-        "aaii_bear": aaii["bearish"],
-        "poly_up":   poly["up"],
-    }
+    if mode == "post":
+        # 盘后：只抓 SPX 收盘
+        spx = fetch_spx()
+        print(f"  SPX 收盘: {spx['close']} ({spx['chg_pct']:+}%)")
+        today_data = {**today_base, "spx_close": spx["close"], "spx_chg": spx["chg_pct"]}
+        # 重新读取其他字段用于渲染 HTML
+        fg   = {"score": today_base.get("fg_score", 29), "rating": today_base.get("fg_rating", "Fear"), "prev": 31}
+        vix  = {"close": today_base.get("vix_close", 15.84), "prev": 17.84, "high52": 35.30, "low52": 13.38}
+        aaii = {"bullish": today_base.get("aaii_bull", 38.0), "neutral": today_base.get("aaii_neutral", 22.7),
+                "bearish": today_base.get("aaii_bear", 39.3), "week": today_base.get("aaii_week", "—")}
+        poly = {"up": today_base.get("poly_up", 50), "down": 100 - today_base.get("poly_up", 50), "found": False}
+    else:
+        # 盘前：更新情绪指标，SPX 取前日收盘
+        fg   = fetch_fear_greed()
+        vix  = fetch_vix()
+        spx  = fetch_spx()
+        aaii = fetch_aaii()
+        poly = fetch_polymarket_spx_today()
+        print(f"  F&G: {fg['score']} ({fg['rating']})")
+        print(f"  VIX: {vix['close']}")
+        print(f"  SPX(前日): {spx['close']} ({spx['chg_pct']:+}%)")
+        print(f"  AAII: Bull {aaii['bullish']}% | Bear {aaii['bearish']}%")
+        print(f"  Polymarket 今日上涨: {poly['up']}%")
+        today_data = {
+            **today_base,
+            "fg_score":     fg["score"],
+            "fg_rating":    fg["rating"],
+            "vix_close":    vix["close"],
+            "spx_close":    today_base.get("spx_close", spx["close"]),  # 保留已有收盘
+            "spx_chg":      today_base.get("spx_chg",   spx["chg_pct"]),
+            "aaii_bull":    aaii["bullish"],
+            "aaii_neutral": aaii["neutral"],
+            "aaii_bear":    aaii["bearish"],
+            "aaii_week":    aaii["week"],
+            "poly_up":      poly["up"],
+        }
 
     history = load_history()
     history = save_history(history, today_data)
@@ -554,47 +592,85 @@ def main():
 
     print(f"✅ 仪表盘已更新: {OUTPUT_HTML}")
 
+    # 校验：检测是否全部使用 fallback（数据抓取全部失败）
+    is_fallback = (
+        fg  == FALLBACKS["fg"] and
+        vix == FALLBACKS["vix"] and
+        spx == FALLBACKS["spx"]
+    )
+    if is_fallback:
+        print("⚠️  警告：所有数据均为 fallback 默认值，数据源可能全部不可用")
+
+    # 写入状态文件
+    status = {
+        "last_run":    datetime.now(pytz.timezone("America/New_York")).isoformat(),
+        "mode":        mode,
+        "data_ok":     not is_fallback,
+        "fg_score":    fg["score"],
+        "vix_close":   vix["close"],
+        "spx_close":   spx["close"],
+        "spx_chg":     spx["chg_pct"],
+        "poly_up":     poly["up"],
+    }
+    with open("/Users/admin/us_sentiment_status.json", "w") as f:
+        json.dump(status, f, indent=2)
+
     # Push to GitHub Pages
-    push_to_github(html)
+    push_to_github(html, status)
 
 
-def push_to_github(html: str):
-    """Push updated dashboard to GitHub Pages"""
+def _push_file(api_base, headers, path, content_bytes, message):
+    """推送单个文件到 GitHub，失败自动重试一次"""
     import base64
-    # Token from env var (GitHub Actions) or local keychain
+    url = f"{api_base}/contents/{path}"
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        sha = r.json().get("sha") if r.status_code == 200 else None
+        payload = {
+            "message": message,
+            "content": base64.b64encode(content_bytes).decode(),
+            "branch":  "main",
+        }
+        if sha:
+            payload["sha"] = sha
+        r2 = requests.put(url, headers=headers, json=payload, timeout=15)
+        if r2.status_code in (200, 201):
+            print(f"  ✅ {path} 推送成功")
+            return True
+        else:
+            print(f"  ⚠️ {path} 推送失败: {r2.status_code}")
+            return False
+    except Exception as e:
+        print(f"  ⚠️ {path} 推送异常: {e}")
+        return False
+
+def push_to_github(html: str, status: dict = None):
+    """Push updated dashboard + status.json to GitHub Pages"""
     GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN") or _read_local_gh_token()
     if not GITHUB_TOKEN:
         print("⚠️  GitHub token 未找到，跳过推送")
         return
-    GITHUB_USER  = "chenfei0710-source"
-    REPO_NAME    = "us-sentiment-dashboard"
-    FILE_PATH    = "index.html"
-    API_BASE     = f"https://api.github.com/repos/{GITHUB_USER}/{REPO_NAME}/contents/{FILE_PATH}"
-    HEADERS      = {
+
+    GITHUB_USER = os.environ.get("GITHUB_USER", "chenfei0710-source")
+    REPO_NAME   = os.environ.get("GITHUB_REPO", "us-sentiment-dashboard")
+    API_BASE    = f"https://api.github.com/repos/{GITHUB_USER}/{REPO_NAME}"
+    HEADERS     = {
         "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "sentiment-tracker"
+        "Accept":        "application/vnd.github.v3+json",
+        "User-Agent":    "sentiment-tracker",
     }
-    try:
-        # Get current SHA (needed for update)
-        r = requests.get(API_BASE, headers=HEADERS, timeout=10)
-        sha = r.json().get("sha") if r.status_code == 200 else None
+    msg = f"自动更新 {date.today().isoformat()}"
 
-        payload = {
-            "message": f"自动更新 {date.today().isoformat()}",
-            "content": base64.b64encode(html.encode()).decode(),
-            "branch": "main"
-        }
-        if sha:
-            payload["sha"] = sha
+    ok_html = _push_file(API_BASE, HEADERS, "index.html", html.encode(), msg)
 
-        r2 = requests.put(API_BASE, headers=HEADERS, json=payload, timeout=15)
-        if r2.status_code in (200, 201):
-            print(f"✅ GitHub Pages 已更新: https://{GITHUB_USER}.github.io/{REPO_NAME}")
-        else:
-            print(f"⚠️  GitHub push 失败: {r2.status_code} {r2.text[:80]}")
-    except Exception as e:
-        print(f"⚠️  GitHub push 异常: {e}")
+    if status:
+        status_bytes = json.dumps(status, indent=2, ensure_ascii=False).encode()
+        _push_file(API_BASE, HEADERS, "status.json", status_bytes, msg)
+
+    if ok_html:
+        print(f"✅ GitHub Pages 已更新: https://{GITHUB_USER}.github.io/{REPO_NAME}")
+    else:
+        print("❌ GitHub Pages 更新失败，请检查 token 和网络")
 
 
 if __name__ == "__main__":
