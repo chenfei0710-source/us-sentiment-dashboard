@@ -17,7 +17,7 @@ import sys
 _IS_CI      = os.environ.get("CI") == "true"
 _BASE       = os.path.dirname(os.path.abspath(__file__))
 _LOCAL      = "/Users/admin"
-OUTPUT_HTML = os.path.join(_BASE, "index.html")                if _IS_CI else f"{_LOCAL}/us_sentiment_dashboard.html"
+OUTPUT_HTML = os.path.join(_BASE, "index.html")                if _IS_CI else f"{_LOCAL}/us_sentiment_dashboard_v2.html"
 DATA_LOG    = os.path.join(_BASE, "us_sentiment_history.json") if _IS_CI else f"{_LOCAL}/us_sentiment_history.json"
 STATUS_FILE = os.path.join(_BASE, "status.json")               if _IS_CI else f"{_LOCAL}/us_sentiment_status.json"
 
@@ -535,11 +535,11 @@ document.querySelectorAll('.bar-fill').forEach(b => {{
 def update_v2_html(fg, vix, spx, aaii, poly, history, now, mode):
     import re
 
-    # 读取现有 v2 HTML（优先本地文件，CI 用 checkout 后的 index.html）
-    src = OUTPUT_HTML
+    # 读取现有 v2 HTML：
+    # CI → checkout 的 index.html；本地 → us_sentiment_dashboard_v2.html
+    src = OUTPUT_HTML if _IS_CI else "/Users/admin/us_sentiment_dashboard_v2.html"
     if not os.path.exists(src):
-        # 找不到文件时从 v2 本地备份读取
-        src = "/Users/admin/us_sentiment_dashboard_v2.html"
+        src = OUTPUT_HTML  # 最终兜底
     with open(src, encoding="utf-8") as f:
         html = f.read()
 
