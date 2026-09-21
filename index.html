@@ -340,8 +340,8 @@
     </div>
   </div>
   <div class="date">
-    <strong>2026年9月18日</strong>
-    周四 · 美东时间
+    <strong>2026年9月21日</strong>
+    周一 · 美东时间
   </div>
 </div>
 
@@ -350,22 +350,22 @@
   <div class="summary-card">
     <div class="summary-icon">😱</div>
     <div class="summary-label">整体情绪</div>
-    <div class="summary-val" style="color:var(--red);">恐惧</div>
+    <div class="summary-val" style="color:var(--red);"><span style="color:#ef4444;">恐惧</span></div>
   </div>
   <div class="summary-card">
     <div class="summary-icon">📊</div>
     <div class="summary-label">SPX 昨收</div>
-    <div class="summary-val">7,637.76</div>
+    <div class="summary-val">7,600.00</div>
   </div>
   <div class="summary-card">
     <div class="summary-icon">🎯</div>
     <div class="summary-label">今日涨概率</div>
-    <div class="summary-val" style="color:var(--green);">72%</div>
+    <div class="summary-val" style="color:var(--green);">50%</div>
   </div>
   <div class="summary-card">
     <div class="summary-icon">⚡</div>
     <div class="summary-label">VIX</div>
-    <div class="summary-val" style="color:var(--yellow);">16.47</div>
+    <div class="summary-val" style="color:var(--yellow);">15.84</div>
   </div>
 </div>
 
@@ -416,7 +416,7 @@
       <div class="bar-row">
         <div class="bar-row-head">
           <span class="name">🐂 看涨 Bullish</span>
-          <span class="val" style="color:var(--green);">44.9% <span style="color:var(--muted);font-size:0.75rem;font-weight:400">均值 37.5% ▲+8.6pp</span></span>
+          <span class="val" style="color:var(--green);">38.0% <span style="color:var(--muted);font-size:0.75rem;font-weight:400">均值 37.5% ▲+8.6pp</span></span>
         </div>
         <div class="bar-track">
           <div class="bar-fill" style="width:44.9%;background:var(--green);"></div>
@@ -687,7 +687,7 @@
 
 <div class="footer">
   <span>数据来源：CNN Fear & Greed Index · AAII Sentiment Survey · CBOE VIX · Polymarket</span>
-  <span>仅供参考，不构成投资建议 · 更新时间：2026-09-18</span>
+  <span>仅供参考，不构成投资建议 · 更新时间：2026-09-21 04:49 ET</span>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -698,10 +698,10 @@
   // 随tracker.py积累后自动替换为真实数据
   // 真实历史数据（来源：Yahoo Finance / Investing.com）
   // 真实历史数据（来源：Yahoo Finance / Investing.com）
-  const labels  = ['8/3','8/4','8/5','8/6','8/7','8/10','8/11','8/12','8/13','8/14','8/17','8/18','8/19','8/20','8/21','8/24','8/25','8/26','8/27','8/28','8/31','9/1','9/2','9/3','9/4','9/8','9/9','9/10','9/11','9/14','9/15','9/16','9/17','9/18'];
-  const fg      = [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,29,29];
-  const vix     = [null,null,null,null,14.90,15.46,15.28,14.55,14.63,14.25,15.19,15.84,14.89,16.01,15.13,15.85,15.45,15.21,14.51,14.43,14.92,16.34,15.20,14.32,14.53,15.72,16.46,17.84,15.84,17.71,null,15.26,15.44,14.81];
-  const spxChg  = [1.48,1.79,-0.17,-0.18,0.62,-0.06,-0.32,0.26,0.65,-0.17,-0.52,-0.69,0.21,-0.87,0.43,-0.28,0.32,-0.02,0.72,-0.25,-0.33,-0.71,0.46,1.06,-0.38,-0.58,-0.48,-0.58,0.86,-0.48,-0.45,-0.45,1.14,0.17];
+  const labels  = ["9/18", "9/21"];
+  const fg      = [29, 29];
+  const vix     = [15.84, 15.84];
+  const spxChg  = [0.26, 0.0];
 
   const ctx = document.getElementById('sentimentChart');
   if (!ctx) return;
