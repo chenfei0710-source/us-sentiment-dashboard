@@ -704,6 +704,33 @@ def main():
     if not _IS_CI:
         push_to_github(html, status)
 
+    # ── Double-check：回验线上页面数据是否与本次推送一致 ──────────────
+    import time, re as _re
+    PAGES_URL = "https://chenfei0710-source.github.io/us-sentiment-dashboard/"
+    print("\n🔍 Double-check：等待 20 秒后回验线上数据...")
+    time.sleep(20)
+    try:
+        live = requests.get(PAGES_URL, timeout=15).text
+        checks = {
+            "SPX":  (f"{spx['close']:,.2f}", live),
+            "VIX":  (str(vix["close"]),       live),
+            "F&G":  (str(fg["score"]),         live),
+            "日期":  (now.strftime("%Y年%-m月%-d日"), live),
+        }
+        all_ok = True
+        for label, (expected, page) in checks.items():
+            if expected in page:
+                print(f"  ✅ {label}: {expected} 已在线上确认")
+            else:
+                print(f"  ❌ {label}: 期望 {expected}，线上未找到 → 可能仍在 CDN 刷新中")
+                all_ok = False
+        if all_ok:
+            print("✅ Double-check 通过，线上数据与本次更新一致")
+        else:
+            print("⚠️  部分数据尚未反映，建议 1-2 分钟后手动刷新页面确认")
+    except Exception as e:
+        print(f"  ⚠️  回验请求失败: {e}")
+
 
 def _push_file(api_base, headers, path, content_bytes, message):
     """推送单个文件到 GitHub，失败自动重试一次"""
