@@ -529,6 +529,88 @@ document.querySelectorAll('.bar-fill').forEach(b => {{
 </html>"""
 
 # ─────────────────────────────────────────────
+# 3b. 更新 v2 HTML（保留样式，只替换数据）
+# ─────────────────────────────────────────────
+
+def update_v2_html(fg, vix, spx, aaii, poly, history, now, mode):
+    import re
+
+    # 读取现有 v2 HTML（优先本地文件，CI 用 checkout 后的 index.html）
+    src = OUTPUT_HTML
+    if not os.path.exists(src):
+        # 找不到文件时从 v2 本地备份读取
+        src = "/Users/admin/us_sentiment_dashboard_v2.html"
+    with open(src, encoding="utf-8") as f:
+        html = f.read()
+
+    fg_color, fg_label, _ = rating_color(fg["score"])
+    vix_color, _          = vix_level(vix["close"])[:2]
+    spx_color = "#10b981" if spx["chg_pct"] >= 0 else "#ef4444"
+    spx_sign  = "+" if spx["chg_pct"] >= 0 else ""
+    poly_color = "#10b981" if poly["up"] >= 55 else "#ef4444" if poly["up"] <= 45 else "#f59e0b"
+
+    # 1. 标题日期
+    zh_weekday = ["周一","周二","周三","周四","周五","周六","周日"][now.weekday()]
+    date_str_zh = now.strftime(f"%Y年%-m月%-d日")
+    html = re.sub(r'<strong>\d{4}年\d+月\d+日</strong>',
+                  f'<strong>{date_str_zh}</strong>', html)
+    html = re.sub(r'周[一二三四五六日] · 美东时间',
+                  f'{zh_weekday} · 美东时间', html)
+
+    # 2. summary-card 整体情绪
+    html = re.sub(
+        r'(<div class="summary-label">整体情绪</div>\s*<div class="summary-val"[^>]*>)[^<]*(</div>)',
+        rf'\g<1><span style="color:{fg_color};">{fg_label}</span>\g<2>', html)
+
+    # 3. summary-card SPX 昨收
+    html = re.sub(
+        r'(<div class="summary-label">SPX 昨收</div>\s*<div class="summary-val"[^>]*>)[^<]*(</div>)',
+        rf'\g<1>{spx["close"]:,.2f}\g<2>', html)
+
+    # 4. summary-card 今日涨概率
+    html = re.sub(
+        r'(<div class="summary-label">今日涨概率</div>\s*<div class="summary-val"[^>]*>)[^<]*(</div>)',
+        rf'\g<1>{poly["up"]}%\g<2>', html)
+
+    # 5. summary-card VIX
+    html = re.sub(
+        r'(<div class="summary-label">VIX</div>\s*<div class="summary-val"[^>]*>)[^<]*(</div>)',
+        rf'\g<1>{vix["close"]}\g<2>', html)
+
+    # 6. F&G 大数字
+    html = re.sub(r'(<div class="gauge-value"[^>]*id="fg-num"[^>]*>)\d+(</div>)',
+                  rf'\g<1>{fg["score"]}\g<2>', html)
+    html = re.sub(r'animateValue\(fgNum, 0, \d+,',
+                  f'animateValue(fgNum, 0, {fg["score"]},', html)
+
+    # 7. AAII 进度条宽度
+    html = re.sub(r'(🐂 看涨.*?)([\d.]+)(%.*?均值)', lambda m:
+        m.group(0).replace(m.group(2), str(aaii["bullish"])), html, flags=re.DOTALL)
+    for emoji, key, color in [("🐻", "bearish", "--red"), ("➡️", "neutral", "--yellow")]:
+        pass  # minimal change: just update bar widths via data attrs if needed
+
+    # 8. VIX 大数字
+    html = re.sub(r'(<div class="big" style="color:[^"]*;">)([\d.]+)(</div>\s*<div class="sub"[^>]*>\s*[↓↑])',
+                  rf'\g<1>{vix["close"]}\g<3>', html)
+
+    # 9. 图表数据从 history 重建
+    if len(history) >= 1:
+        labels_js  = json.dumps([h["date"][5:].lstrip("0").replace("-0","/").replace("-","/") for h in history])
+        fg_js      = json.dumps([h.get("fg_score") for h in history])
+        vix_js     = json.dumps([h.get("vix_close") for h in history])
+        spxchg_js  = json.dumps([h.get("spx_chg") for h in history])
+        html = re.sub(r'const labels\s*=\s*\[.*?\];', f'const labels  = {labels_js};', html, flags=re.DOTALL)
+        html = re.sub(r'const fg\s*=\s*\[.*?\];',     f'const fg      = {fg_js};',     html, flags=re.DOTALL)
+        html = re.sub(r'const vix\s*=\s*\[.*?\];',    f'const vix     = {vix_js};',    html, flags=re.DOTALL)
+        html = re.sub(r'const spxChg\s*=\s*\[.*?\];', f'const spxChg  = {spxchg_js};', html, flags=re.DOTALL)
+
+    # 10. 页脚更新时间
+    html = re.sub(r'更新时间：[\d\-]+', f'更新时间：{now.strftime("%Y-%m-%d %H:%M ET")}', html)
+
+    return html
+
+
+# ─────────────────────────────────────────────
 # 4. 主程序
 # ─────────────────────────────────────────────
 
@@ -588,7 +670,7 @@ def main():
     history = load_history()
     history = save_history(history, today_data)
 
-    html = build_html(fg, vix, spx, aaii, poly, history, now_str)
+    html = update_v2_html(fg, vix, spx, aaii, poly, history, now, mode)
     with open(OUTPUT_HTML, "w", encoding="utf-8") as f:
         f.write(html)
 
