@@ -14,10 +14,12 @@ import os
 import sys
 
 # CI 环境（GitHub Actions）用相对路径，本地用绝对路径
-_IS_CI   = os.environ.get("CI") == "true"
-_BASE    = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_HTML = os.path.join(_BASE, "index.html")             if _IS_CI else "/Users/admin/us_sentiment_dashboard.html"
-DATA_LOG    = os.path.join(_BASE, "us_sentiment_history.json") if _IS_CI else "/Users/admin/us_sentiment_history.json"
+_IS_CI      = os.environ.get("CI") == "true"
+_BASE       = os.path.dirname(os.path.abspath(__file__))
+_LOCAL      = "/Users/admin"
+OUTPUT_HTML = os.path.join(_BASE, "index.html")                if _IS_CI else f"{_LOCAL}/us_sentiment_dashboard.html"
+DATA_LOG    = os.path.join(_BASE, "us_sentiment_history.json") if _IS_CI else f"{_LOCAL}/us_sentiment_history.json"
+STATUS_FILE = os.path.join(_BASE, "status.json")               if _IS_CI else f"{_LOCAL}/us_sentiment_status.json"
 
 
 def _read_local_gh_token():
@@ -612,7 +614,7 @@ def main():
         "spx_chg":     spx["chg_pct"],
         "poly_up":     poly["up"],
     }
-    with open("/Users/admin/us_sentiment_status.json", "w") as f:
+    with open(STATUS_FILE, "w") as f:
         json.dump(status, f, indent=2)
 
     # Push to GitHub Pages
