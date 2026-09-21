@@ -2,13 +2,16 @@ name: 美股情绪仪表盘每日更新
 
 on:
   schedule:
-    - cron: "0 8 * * 1-5"    # 盘前：UTC 08:00 = 北京 16:00（F&G/VIX/AAII/Polymarket）
-    - cron: "30 20 * * 1-5"   # 盘后：UTC 20:30 = 美东 16:30（SPX 当日收盘）
+    - cron: "0 8 * * 1-5"    # 盘前：UTC 08:00 = 北京 16:00
+    - cron: "30 20 * * 1-5"   # 盘后：UTC 20:30 = 美东 16:30
   workflow_dispatch:
     inputs:
       mode:
         description: "pre / post"
         default: "pre"
+
+permissions:
+  contents: write
 
 jobs:
   update:
@@ -25,7 +28,7 @@ jobs:
         run: pip install requests yfinance pytz
 
       - name: Run pre-market update
-        if: github.event.schedule == '0 8 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'pre')
+        if: github.event.schedule == '0 8 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode != 'post')
         run: python tracker.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -40,14 +43,17 @@ jobs:
           GITHUB_USER: chenfei0710-source
           GITHUB_REPO: us-sentiment-dashboard
 
-      - name: Validate status.json
+      - name: Validate data quality
         run: |
-          if [ -f us_sentiment_status.json ]; then
-            DATA_OK=$(python3 -c "import json; s=json.load(open('us_sentiment_status.json')); print(s.get('data_ok', False))")
-            echo "data_ok=$DATA_OK"
-            if [ "$DATA_OK" = "False" ]; then
-              echo "::warning::数据全部 fallback，数据源可能不可用"
-            fi
+          if [ -f status.json ]; then
+            python3 -c "
+import json, sys
+s = json.load(open('status.json'))
+print('last_run:', s.get('last_run'))
+print('data_ok:', s.get('data_ok'))
+if not s.get('data_ok'):
+    print('::warning::数据全部 fallback，数据源可能不可用')
+"
           fi
 
       - name: Commit and push
