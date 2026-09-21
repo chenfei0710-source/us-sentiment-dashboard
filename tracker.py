@@ -594,7 +594,7 @@ def main():
 
     print(f"✅ 仪表盘已更新: {OUTPUT_HTML}")
 
-    # 校验：检测是否全部使用 fallback（数据抓取全部失败）
+    # 校验：检测是否全部使用 fallback
     is_fallback = (
         fg  == FALLBACKS["fg"] and
         vix == FALLBACKS["vix"] and
@@ -603,22 +603,24 @@ def main():
     if is_fallback:
         print("⚠️  警告：所有数据均为 fallback 默认值，数据源可能全部不可用")
 
-    # 写入状态文件
+    # 写入状态文件（本地 & CI 均写）
     status = {
-        "last_run":    datetime.now(pytz.timezone("America/New_York")).isoformat(),
-        "mode":        mode,
-        "data_ok":     not is_fallback,
-        "fg_score":    fg["score"],
-        "vix_close":   vix["close"],
-        "spx_close":   spx["close"],
-        "spx_chg":     spx["chg_pct"],
-        "poly_up":     poly["up"],
+        "last_run":  datetime.now(pytz.timezone("America/New_York")).isoformat(),
+        "mode":      mode,
+        "data_ok":   not is_fallback,
+        "fg_score":  fg["score"],
+        "vix_close": vix["close"],
+        "spx_close": spx["close"],
+        "spx_chg":   spx["chg_pct"],
+        "poly_up":   poly["up"],
     }
     with open(STATUS_FILE, "w") as f:
         json.dump(status, f, indent=2)
 
-    # Push to GitHub Pages
-    push_to_github(html, status)
+    # CI 模式：文件已写到工作区，由 workflow 的 git push 步骤统一提交
+    # 本地模式：通过 GitHub API 直接推送
+    if not _IS_CI:
+        push_to_github(html, status)
 
 
 def _push_file(api_base, headers, path, content_bytes, message):
