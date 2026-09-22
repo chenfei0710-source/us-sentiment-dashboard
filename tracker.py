@@ -623,8 +623,9 @@ def update_v2_html(fg, vix, spx, aaii, poly, history, now, mode):
         html = re.sub(r'const vix\s*=\s*\[.*?\];',    f'const vix     = {vix_js};',    html, flags=re.DOTALL)
         html = re.sub(r'const spxChg\s*=\s*\[.*?\];', f'const spxChg  = {spxchg_js};', html, flags=re.DOTALL)
 
-    # 10. 页脚更新时间
-    html = re.sub(r'更新时间：[\d\-]+', f'更新时间：{now.strftime("%Y-%m-%d %H:%M ET")}', html)
+    # 10. 页脚更新时间（完全替换，不追加）
+    html = re.sub(r'更新时间：[^·]*?(?=</span>)',
+                  f'更新时间：{now.strftime("%Y-%m-%d %H:%M ET")}', html)
 
     return html
 
