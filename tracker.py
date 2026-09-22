@@ -667,6 +667,8 @@ def main():
         aaii = {"bullish": today_base.get("aaii_bull", 38.0), "neutral": today_base.get("aaii_neutral", 22.7),
                 "bearish": today_base.get("aaii_bear", 39.3), "week": today_base.get("aaii_week", "—")}
         poly = {"up": today_base.get("poly_up", 50), "down": 100 - today_base.get("poly_up", 50), "found": False}
+        # post 模式不抓其他指标，给空值供 fallback_flags 使用
+        fg_new, vix_new, aaii_new, poly_new = FALLBACKS["fg"], FALLBACKS["vix"], FALLBACKS["aaii"], FALLBACKS["poly"]
     else:
         # 盘前：更新情绪指标，SPX 取前日收盘
         fg_new   = fetch_fear_greed()
@@ -718,14 +720,20 @@ def main():
 
     print(f"✅ 仪表盘已更新: {OUTPUT_HTML}")
 
-    # 校验：检测是否全部使用 fallback
-    is_fallback = (
-        fg  == FALLBACKS["fg"] and
-        vix == FALLBACKS["vix"] and
-        spx == FALLBACKS["spx"]
-    )
-    if is_fallback:
-        print("⚠️  警告：所有数据均为 fallback 默认值，数据源可能全部不可用")
+    # 校验：任何指标 fallback 都告警（不只看全量）
+    fallback_flags = {
+        "F&G":       fg_new == FALLBACKS["fg"]   if mode == "pre" else False,
+        "VIX":       vix_new == FALLBACKS["vix"] if mode == "pre" else False,
+        "SPX":       spx_new == FALLBACKS["spx"],
+        "AAII":      aaii_new == FALLBACKS["aaii"] if mode == "pre" else False,
+        "Polymarket": not poly_new.get("found")    if mode == "pre" else False,
+    }
+    is_fallback = any(fallback_flags.values())
+    for k, v in fallback_flags.items():
+        if v:
+            print(f"  ⚠️  {k} 使用了 fallback / 保留上次值 → 数据源异常")
+    if all(fallback_flags.values()):
+        print("⚠️  警告：所有数据源均不可用，请人工检查")
 
     # 写入状态文件（本地 & CI 均写）
     status = {
