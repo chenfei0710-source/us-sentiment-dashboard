@@ -10,69 +10,31 @@ on:
         description: "pre or post"
         default: "pre"
         type: string
-  push:
-    branches:
-      - main
-    paths:
-      - "trigger-update.txt"
 
 permissions:
   contents: write
 
 jobs:
-  update:
+  pre-market:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 8 * * 1-5'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Install dependencies
-        run: pip install requests yfinance pytz beautifulsoup4
-
-      - name: Determine mode
-        id: mode
-        run: |
-          if [[ "${{ github.event_name }}" == "schedule" ]]; then
-            if [[ "${{ github.event.schedule }}" == "30 20 * * 1-5" ]]; then
-              echo "mode=post" >> $GITHUB_OUTPUT
-            else
-              echo "mode=pre" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "mode=${{ github.event.inputs.mode || 'pre' }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Run pre-market update
-        if: steps.mode.outputs.mode != 'post'
-        run: python tracker.py
+      - run: pip install requests yfinance pytz beautifulsoup4
+      - run: python tracker.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USER: chenfei0710-source
-          GITHUB_REPO: us-sentiment-dashboard
-
-      - name: Run post-market SPX update
-        if: steps.mode.outputs.mode == 'post'
-        run: python tracker.py --post-market
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USER: chenfei0710-source
-          GITHUB_REPO: us-sentiment-dashboard
-
-      - name: Commit and push
-        run: |
+      - run: |
           git config user.name "Sentiment Bot"
           git config user.email "bot@users.noreply.github.com"
           git add index.html us_sentiment_history.json status.json 2>/dev/null || true
-          git diff --cached --quiet || git commit -m "自动更新 $(date +%Y-%m-%d)"
+          git diff --cached --quiet || git commit -m "盘前自动更新 $(date +%Y-%m-%d)"
           git push
-
-      - name: Double-check live page
+      - name: Double-check
         run: |
-          echo "Waiting for GitHub Pages CDN..."
           sleep 30
           python3 -c "
 import requests, json, os, sys
@@ -81,17 +43,45 @@ status = json.load(open('status.json')) if os.path.exists('status.json') else {}
 errors = []
 spx = str(status.get('spx_close',''))
 if spx and spx.replace('.','').isdigit():
-    formatted = f'{float(spx):,.2f}'
-    if formatted not in page:
-        errors.append(f'SPX {formatted} not on live page')
+    if f'{float(spx):,.2f}' not in page:
+        errors.append(f'SPX not on live page')
 from datetime import date
-today = date.today().strftime('%Y年%-m月%-d日')
-if today not in page:
-    errors.append(f'Date {today} not on live page')
+if date.today().strftime('%Y年%-m月%-d日') not in page:
+    errors.append('Date not on live page')
 if errors:
-    print('Double-check FAILED:')
-    for e in errors: print('  -', e)
+    for e in errors: print('FAIL:', e)
     sys.exit(1)
-else:
-    print('Double-check passed')
+print('Double-check passed')
+"
+
+  post-market:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'post' || github.event.schedule == '30 20 * * 1-5'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests yfinance pytz beautifulsoup4
+      - run: python tracker.py --post-market
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          git config user.name "Sentiment Bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add index.html us_sentiment_history.json status.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "盘后SPX更新 $(date +%Y-%m-%d)"
+          git push
+      - name: Double-check
+        run: |
+          sleep 30
+          python3 -c "
+import requests, json, os, sys
+page = requests.get('https://chenfei0710-source.github.io/us-sentiment-dashboard/', timeout=15).text
+status = json.load(open('status.json')) if os.path.exists('status.json') else {}
+spx = str(status.get('spx_close',''))
+if spx and spx.replace('.','').isdigit():
+    if f'{float(spx):,.2f}' not in page:
+        print('FAIL: SPX not on live page'); sys.exit(1)
+print('Double-check passed')
 "
