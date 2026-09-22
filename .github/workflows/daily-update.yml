@@ -10,6 +10,11 @@ on:
         description: "pre or post"
         default: "pre"
         type: string
+  push:
+    branches:
+      - main
+    paths:
+      - "trigger-update.txt"
 
 permissions:
   contents: write
@@ -28,8 +33,21 @@ jobs:
       - name: Install dependencies
         run: pip install requests yfinance pytz beautifulsoup4
 
+      - name: Determine mode
+        id: mode
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            if [[ "${{ github.event.schedule }}" == "30 20 * * 1-5" ]]; then
+              echo "mode=post" >> $GITHUB_OUTPUT
+            else
+              echo "mode=pre" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "mode=${{ github.event.inputs.mode || 'pre' }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run pre-market update
-        if: github.event.schedule == '0 8 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode != 'post')
+        if: steps.mode.outputs.mode != 'post'
         run: python tracker.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -37,7 +55,7 @@ jobs:
           GITHUB_REPO: us-sentiment-dashboard
 
       - name: Run post-market SPX update
-        if: github.event.schedule == '30 20 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'post')
+        if: steps.mode.outputs.mode == 'post'
         run: python tracker.py --post-market
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
