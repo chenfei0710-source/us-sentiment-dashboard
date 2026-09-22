@@ -65,7 +65,13 @@ def fetch_fear_greed():
     """CNN Fear & Greed Index"""
     def _fetch():
         url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata"
-        r = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "Referer": "https://edition.cnn.com/markets/fear-and-greed",
+            "Origin": "https://edition.cnn.com",
+        }
+        r = requests.get(url, timeout=15, headers=headers)
         data = r.json()
         return {
             "score":  round(data["fear_and_greed"]["score"]),
@@ -126,17 +132,30 @@ def fetch_polymarket_spx_today():
     return result if ok else FALLBACKS["poly"]
 
 def fetch_aaii():
-    """AAII 散户情绪；每周四更新"""
+    """AAII 散户情绪调查；每周四更新。
+    aaii.com 有反爬保护，改用 YCharts 数据源。
+    """
     def _fetch():
-        url = "https://www.aaii.com/sentimentsurvey/sent_results"
-        r = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
-        data = r.json()
-        return {
-            "bullish": round(data.get("bullish", 38.0), 1),
-            "neutral": round(data.get("neutral", 22.7), 1),
-            "bearish": round(data.get("bearish", 39.3), 1),
-            "week":    data.get("period", "—"),
+        # YCharts 页面解析
+        url = "https://ycharts.com/indicators/us_investor_sentiment_bullish"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Accept": "text/html,application/xhtml+xml",
         }
+        r = requests.get(url, timeout=15, headers=headers)
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(r.text, 'html.parser')
+        # 找数值
+        text = soup.get_text()
+        # YCharts 显示百分比，用正则提取
+        import re
+        nums = re.findall(r'(\d+\.?\d*)%', text)
+        if len(nums) >= 3:
+            bull = round(float(nums[0]), 1)
+            bear = round(float(nums[1]), 1)
+            neut = round(100 - bull - bear, 1)
+            return {"bullish": bull, "neutral": neut, "bearish": bear, "week": "—"}
+        raise ValueError("AAII data not found in YCharts page")
     result, ok = _retry(_fetch, "AAII")
     return result if ok else FALLBACKS["aaii"]
 
