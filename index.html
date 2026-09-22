@@ -340,8 +340,8 @@
     </div>
   </div>
   <div class="date">
-    <strong>2026年9月21日</strong>
-    周一 · 美东时间
+    <strong>2026年9月22日</strong>
+    周二 · 美东时间
   </div>
 </div>
 
@@ -355,7 +355,7 @@
   <div class="summary-card">
     <div class="summary-icon">📊</div>
     <div class="summary-label">SPX 昨收</div>
-    <div class="summary-val">7,650.50</div>
+    <div class="summary-val">7,764.70</div>
   </div>
   <div class="summary-card">
     <div class="summary-icon">🎯</div>
@@ -365,7 +365,7 @@
   <div class="summary-card">
     <div class="summary-icon">⚡</div>
     <div class="summary-label">VIX</div>
-    <div class="summary-val" style="color:var(--yellow);">15.84</div>
+    <div class="summary-val" style="color:var(--yellow);">14.81</div>
   </div>
 </div>
 
@@ -687,7 +687,7 @@
 
 <div class="footer">
   <span>数据来源：CNN Fear & Greed Index · AAII Sentiment Survey · CBOE VIX · Polymarket</span>
-  <span>仅供参考，不构成投资建议 · 更新时间：2026-09-21 04:49 ET</span>
+  <span>仅供参考，不构成投资建议 · 更新时间：2026-09-22 04:57 ET 04:00 ET 16:30 ET 04:49 ET</span>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -698,10 +698,10 @@
   // 随tracker.py积累后自动替换为真实数据
   // 真实历史数据（来源：Yahoo Finance / Investing.com）
   // 真实历史数据（来源：Yahoo Finance / Investing.com）
-  const labels  = ["9/18", "9/21"];
-  const fg      = [29, 29];
-  const vix     = [15.84, 15.84];
-  const spxChg  = [0.26, 0.0];
+  const labels  = ["9/18", "9/21", "9/22"];
+  const fg      = [29, 29, 29];
+  const vix     = [15.84, 15.84, 14.81];
+  const spxChg  = [0.26, 0.0, 0.0];
 
   const ctx = document.getElementById('sentimentChart');
   if (!ctx) return;
