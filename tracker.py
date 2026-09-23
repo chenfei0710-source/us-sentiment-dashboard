@@ -106,8 +106,14 @@ def fetch_spx():
         hist = ticker.history(period="5d")
         if hist.empty:
             raise ValueError("empty history")
-        close   = round(hist["Close"].iloc[-1], 2)
+        import math
+        close = hist["Close"].iloc[-1]
+        if math.isnan(close):
+            raise ValueError("SPX close is NaN")
+        close   = round(close, 2)
         prev    = round(hist["Close"].iloc[-2], 2) if len(hist) > 1 else close
+        if math.isnan(prev):
+            prev = close
         chg_pct = round((close - prev) / prev * 100, 2)
         return {"close": close, "prev": prev, "chg_pct": chg_pct}
     result, ok = _retry(_fetch, "SPX")
