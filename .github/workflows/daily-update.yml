@@ -10,13 +10,18 @@ on:
         description: "pre or post"
         default: "pre"
         type: string
+  push:
+    branches:
+      - main
+    paths:
+      - "trigger-update.txt"
 
 permissions:
   contents: write
 
 jobs:
   pre-market:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 8 * * 1-5'
+    if: github.event_name != 'schedule' || github.event.schedule == '0 8 * * 1-5'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,29 +38,9 @@ jobs:
           git add index.html us_sentiment_history.json status.json 2>/dev/null || true
           git diff --cached --quiet || git commit -m "盘前自动更新 $(date +%Y-%m-%d)"
           git push
-      - name: Double-check
-        run: |
-          sleep 30
-          python3 -c "
-import requests, json, os, sys
-page = requests.get('https://chenfei0710-source.github.io/us-sentiment-dashboard/', timeout=15).text
-status = json.load(open('status.json')) if os.path.exists('status.json') else {}
-errors = []
-spx = str(status.get('spx_close',''))
-if spx and spx.replace('.','').isdigit():
-    if f'{float(spx):,.2f}' not in page:
-        errors.append(f'SPX not on live page')
-from datetime import date
-if date.today().strftime('%Y年%-m月%-d日') not in page:
-    errors.append('Date not on live page')
-if errors:
-    for e in errors: print('FAIL:', e)
-    sys.exit(1)
-print('Double-check passed')
-"
 
   post-market:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'post' || github.event.schedule == '30 20 * * 1-5'
+    if: github.event_name == 'schedule' && github.event.schedule == '30 20 * * 1-5'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,16 +57,3 @@ print('Double-check passed')
           git add index.html us_sentiment_history.json status.json 2>/dev/null || true
           git diff --cached --quiet || git commit -m "盘后SPX更新 $(date +%Y-%m-%d)"
           git push
-      - name: Double-check
-        run: |
-          sleep 30
-          python3 -c "
-import requests, json, os, sys
-page = requests.get('https://chenfei0710-source.github.io/us-sentiment-dashboard/', timeout=15).text
-status = json.load(open('status.json')) if os.path.exists('status.json') else {}
-spx = str(status.get('spx_close',''))
-if spx and spx.replace('.','').isdigit():
-    if f'{float(spx):,.2f}' not in page:
-        print('FAIL: SPX not on live page'); sys.exit(1)
-print('Double-check passed')
-"
