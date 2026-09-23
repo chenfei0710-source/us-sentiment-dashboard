@@ -32,6 +32,9 @@ jobs:
       - run: python tracker.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_USER_OPENID: ${{ secrets.FEISHU_USER_OPENID }}
       - run: |
           git config user.name "Sentiment Bot"
           git config user.email "bot@users.noreply.github.com"
@@ -51,6 +54,9 @@ jobs:
       - run: python tracker.py --post-market
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_USER_OPENID: ${{ secrets.FEISHU_USER_OPENID }}
       - run: |
           git config user.name "Sentiment Bot"
           git config user.email "bot@users.noreply.github.com"
