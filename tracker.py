@@ -114,48 +114,73 @@ def fetch_spx():
     return result if ok else FALLBACKS["spx"]
 
 def fetch_polymarket_spx_today():
-    """Polymarket 当日 SPX 涨跌赔率（尝试 Gamma API）"""
+    """Polymarket 当日 SPX 涨跌赔率（Gamma API events slug）"""
     def _fetch():
-        today_str = date.today().strftime("%B %-d")
-        url = "https://gamma-api.polymarket.com/markets"
-        r = requests.get(url, params={"limit": 50, "active": "true", "tag_id": "6"}, timeout=10)
-        for m in r.json():
-            q = m.get("question", "")
-            if "SPX" in q and "Up or Down" in q and today_str in q:
-                outcomes      = json.loads(m.get("outcomePrices", "[]"))
-                outcome_names = json.loads(m.get("outcomes", "[]"))
-                if outcome_names and outcomes:
-                    up_idx = next((i for i, n in enumerate(outcome_names) if n.lower() == "up"), 0)
-                    return {"up": round(float(outcomes[up_idx]) * 100), "down": 100 - round(float(outcomes[up_idx]) * 100), "found": True}
-        raise ValueError("market not found")
+        today = date.today()
+        slug = f"spx-up-or-down-on-{today.strftime('%B').lower()}-{today.day}-{today.year}"
+        url = f"https://gamma-api.polymarket.com/events/slug/{slug}"
+        r = requests.get(url, timeout=10)
+        if r.status_code != 200:
+            raise ValueError(f"Polymarket event not found (slug={slug}, status={r.status_code})")
+        data = r.json()
+        markets = data.get("markets", [])
+        if not markets:
+            raise ValueError(f"Polymarket event has no markets (slug={slug})")
+        m = markets[0]
+        outcomes      = json.loads(m.get("outcomePrices", "[]"))
+        outcome_names = json.loads(m.get("outcomes", "[]"))
+        if outcome_names and outcomes:
+            up_idx = next((i for i, n in enumerate(outcome_names) if n.lower() == "up"), 0)
+            up_pct = round(float(outcomes[up_idx]) * 100)
+            return {"up": up_pct, "down": 100 - up_pct, "found": True}
+        raise ValueError("Polymarket outcome prices not found")
     result, ok = _retry(_fetch, "Polymarket")
     return result if ok else FALLBACKS["poly"]
 
 def fetch_aaii():
     """AAII 散户情绪调查；每周四更新。
-    aaii.com 有反爬保护，改用 YCharts 数据源。
+    直接从 AAII 官网 sentimentsurvey 页面抓取，使用完整浏览器 headers 绕过反爬。
     """
     def _fetch():
-        # YCharts 页面解析
-        url = "https://ycharts.com/indicators/us_investor_sentiment_bullish"
+        import re
+        from bs4 import BeautifulSoup
+        from datetime import datetime
+
+        url = "https://www.aaii.com/sentimentsurvey"
         headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-            "Accept": "text/html,application/xhtml+xml",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Referer": "https://www.aaii.com/",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
         }
         r = requests.get(url, timeout=15, headers=headers)
-        from bs4 import BeautifulSoup
+        if r.status_code != 200:
+            raise ValueError(f"AAII page returned status {r.status_code}")
         soup = BeautifulSoup(r.text, 'html.parser')
-        # 找数值
         text = soup.get_text()
-        # YCharts 显示百分比，用正则提取
-        import re
-        nums = re.findall(r'(\d+\.?\d*)%', text)
-        if len(nums) >= 3:
-            bull = round(float(nums[0]), 1)
-            bear = round(float(nums[1]), 1)
-            neut = round(100 - bull - bear, 1)
-            return {"bullish": bull, "neutral": neut, "bearish": bear, "week": "—"}
-        raise ValueError("AAII data not found in YCharts page")
+
+        # Extract week ending date (e.g. "Week ending September 16, 2026")
+        date_match = re.search(r'[Ww]eek ending\s+([A-Z][a-z]+)\s+(\d{1,2}),?\s+(\d{4})', text)
+        if not date_match:
+            raise ValueError("AAII week ending date not found")
+        dt = datetime.strptime(date_match.group(1), '%B')
+        week_str = f"{dt.month}/{int(date_match.group(2))}/{int(date_match.group(3))}"
+
+        # Extract Bullish/Neutral/Bearish percentages
+        # Pattern: "Bullish 28.8% Avg 37.5% Neutral 17.9% Avg 31.0% Bearish 53.3% Avg 31.5%"
+        pct_match = re.search(
+            r'Bullish\s+(\d+\.?\d*)%\s*Avg\s+\d+\.?\d*%\s*Neutral\s+(\d+\.?\d*)%\s*Avg\s+\d+\.?\d*%\s*Bearish\s+(\d+\.?\d*)%',
+            text
+        )
+        if not pct_match:
+            raise ValueError("AAII sentiment percentages not found")
+        bull = round(float(pct_match.group(1)), 1)
+        neut = round(float(pct_match.group(2)), 1)
+        bear = round(float(pct_match.group(3)), 1)
+        return {"bullish": bull, "neutral": neut, "bearish": bear, "week": week_str}
     result, ok = _retry(_fetch, "AAII")
     return result if ok else FALLBACKS["aaii"]
 
