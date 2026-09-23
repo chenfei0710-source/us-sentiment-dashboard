@@ -782,6 +782,9 @@ def main():
     except Exception as e:
         print(f"  ⚠️  回验请求失败: {e}")
 
+    # ── 飞书通知 ──
+    send_feishu_notification(status, fallback_flags, mode)
+
 
 def _push_file(api_base, headers, path, content_bytes, message):
     """推送单个文件到 GitHub，失败自动重试一次"""
@@ -835,6 +838,63 @@ def push_to_github(html: str, status: dict = None):
         print(f"✅ GitHub Pages 已更新: https://{GITHUB_USER}.github.io/{REPO_NAME}")
     else:
         print("❌ GitHub Pages 更新失败，请检查 token 和网络")
+
+
+def send_feishu_notification(status: dict, fallback_flags: dict, mode: str):
+    """更新完成后推送飞书通知"""
+    feishu_app_id     = os.environ.get("FEISHU_APP_ID", "")
+    feishu_app_secret = os.environ.get("FEISHU_APP_SECRET", "")
+    feishu_open_id    = os.environ.get("FEISHU_USER_OPENID", "")
+    if not all([feishu_app_id, feishu_app_secret, feishu_open_id]):
+        print("  ℹ️  飞书凭证未设置，跳过推送通知")
+        return
+
+    try:
+        # 获取 tenant_access_token
+        r = requests.post(
+            "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+            json={"app_id": feishu_app_id, "app_secret": feishu_app_secret},
+            timeout=10,
+        )
+        token = r.json().get("tenant_access_token", "")
+        if not token:
+            print(f"  ⚠️  飞书 token 获取失败: {r.json()}")
+            return
+
+        # 构建消息
+        mode_label = "📈 盘前更新" if mode == "pre" else "📊 盘后更新"
+        fallback_list = [k for k, v in fallback_flags.items() if v]
+        fallback_warn = f"\n⚠️ 数据源异常: {', '.join(fallback_list)}" if fallback_list else ""
+        data_ok = "✅ 全部正常" if not fallback_list else "⚠️ 有数据源异常"
+
+        lines = [
+            f"🔔 美股情绪仪表盘 · {mode_label}",
+            f"",
+            f"📅 {status.get('last_run','')[:16]}",
+            f"",
+            f"😱 F&G 恐惧贪婪: {status.get('fg_score','?')}",
+            f"📊 VIX: {status.get('vix_close','?')}",
+            f"📈 SPX: {status.get('spx_close','?')} ({status.get('spx_chg','?'):+.2f}%)" if isinstance(status.get('spx_chg'), (int, float)) else f"📈 SPX: {status.get('spx_close','?')}",
+            f"🎯 Polymarket 看涨: {status.get('poly_up','?')}%",
+            f"",
+            f"{data_ok}{fallback_warn}",
+            f"",
+            f"🔗 https://chenfei0710-source.github.io/us-sentiment-dashboard/",
+        ]
+        content = json.dumps({"text": "\n".join(lines)})
+
+        r = requests.post(
+            "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=open_id",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            json={"receive_id": feishu_open_id, "msg_type": "text", "content": content},
+            timeout=10,
+        )
+        if r.json().get("code") == 0:
+            print("  ✅ 飞书通知已发送")
+        else:
+            print(f"  ⚠️  飞书通知发送失败: {r.json()}")
+    except Exception as e:
+        print(f"  ⚠️  飞书推送异常: {e}")
 
 
 if __name__ == "__main__":
