@@ -665,9 +665,32 @@ def update_v2_html(fg, vix, spx, aaii, poly, history, now, mode):
     for emoji, key, color in [("🐻", "bearish", "--red"), ("➡️", "neutral", "--yellow")]:
         pass  # minimal change: just update bar widths via data attrs if needed
 
-    # 8. VIX 大数字
-    html = re.sub(r'(<div class="big" style="color:[^"]*;">)([\d.]+)(</div>\s*<div class="sub"[^>]*>\s*[↓↑])',
+    # 8. VIX 大数字（class="vix-big"）
+    html = re.sub(r'(<div class="vix-big"[^>]*>)([\d.]+)(</div>)',
                   rf'\g<1>{vix["close"]}\g<3>', html)
+
+    # 8a. VIX 卡片标签日期更新（CBOE · M/D 实时）
+    vix_date_label = now.strftime("%-m/%-d")
+    html = re.sub(r'(CBOE · )\d+/\d+( 实时)', rf'\g<1>{vix_date_label}\g<2>', html)
+
+    # 8b. VIX 前收/涨跌描述
+    vix_prev = vix.get("prev", vix["close"])
+    vix_chg = vix["close"] - vix_prev if vix_prev else 0
+    vix_chg_pct = (vix_chg / vix_prev * 100) if vix_prev else 0
+    vix_arrow = "↑" if vix_chg >= 0 else "↓"
+    vix_level_text = vix_level(vix["close"])[1]
+    html = re.sub(
+        r'(较前日\s*)[↓↑]?\s*[\d.]+%.*?(?=</div>)',
+        rf'\g<1>{vix_arrow} {abs(vix_chg_pct):.2f}% · 前收 {vix_prev:.2f} · {vix_level_text}',
+        html)
+
+    # 8c. VIX range marker 位置
+    vix_low52 = 13.38
+    vix_high52 = 35.30
+    marker_pct = (vix["close"] - vix_low52) / (vix_high52 - vix_low52) * 100
+    marker_pct = max(0, min(100, marker_pct))
+    html = re.sub(r'(class="range-marker"[^>]*style="left:)[\d.]+%',
+                  rf'\g<1>{marker_pct:.1f}%', html)
 
     # 9. 图表数据从 history 重建
     if len(history) >= 1:
