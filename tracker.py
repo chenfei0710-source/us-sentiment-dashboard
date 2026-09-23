@@ -100,33 +100,41 @@ def fetch_vix():
     return result if ok else FALLBACKS["vix"]
 
 def fetch_spx():
-    """SPX 收盘价 via yfinance，nan 时回退到 Yahoo Finance 网页"""
+    """SPX 收盘价 via yfinance，nan 时回退到 Google Finance 网页"""
     def _fetch():
-        ticker = yf.Ticker("^GSPC")
-        hist = ticker.history(period="5d")
-        if hist.empty:
-            raise ValueError("empty history")
-        import math
-        close = hist["Close"].iloc[-1]
-        if math.isnan(close):
-            # 回退：从 Yahoo Finance 网页抓取
+        import math, re
+        # 先尝试 yfinance
+        close = prev = None
+        try:
+            ticker = yf.Ticker("^GSPC")
+            hist = ticker.history(period="5d")
+            if not hist.empty:
+                c = hist["Close"].iloc[-1]
+                if not math.isnan(c):
+                    close = round(c, 2)
+                if len(hist) > 1:
+                    p = hist["Close"].iloc[-2]
+                    if not math.isnan(p):
+                        prev = round(p, 2)
+        except Exception:
+            pass
+
+        # yfinance 失败时回退到 Google Finance
+        if close is None:
             r = requests.get(
-                "https://finance.yahoo.com/quote/%5EGSPC",
+                "https://www.google.com/finance/quote/.INX:INDEXSP",
                 headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
                 timeout=10,
             )
-            import re
-            m = re.search(r'"regularMarketPrice":\s*{"raw":\s*([\d.]+)', r.text)
+            m = re.search(r'data-last-price="([\d,.]+)"', r.text)
             if not m:
-                m = re.search(r'data-reactid="32">.*?>([\d,]+\.?\d*)', r.text)
+                m = re.search(r'data-last-normal-market-timestamp="\d+".*?data-last-price="([\d,.]+)"', r.text, re.DOTALL)
             if not m:
-                raise ValueError("SPX close is NaN and web fallback failed")
+                raise ValueError("SPX: yfinance NaN and Google Finance fallback failed")
             close = round(float(m.group(1).replace(",", "")), 2)
-        prev = hist["Close"].iloc[-2] if len(hist) > 1 else close
-        if math.isnan(prev) or not prev:
+
+        if prev is None:
             prev = close
-        else:
-            prev = round(prev, 2)
         chg_pct = round((close - prev) / prev * 100, 2)
         return {"close": close, "prev": prev, "chg_pct": chg_pct}
     result, ok = _retry(_fetch, "SPX")
