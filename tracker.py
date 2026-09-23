@@ -119,19 +119,24 @@ def fetch_spx():
         except Exception:
             pass
 
-        # yfinance 失败时回退到 Google Finance
+        # yfinance 失败时回退到 Google Finance 网页
         if close is None:
             r = requests.get(
                 "https://www.google.com/finance/quote/.INX:INDEXSP",
                 headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
                 timeout=10,
             )
-            m = re.search(r'data-last-price="([\d,.]+)"', r.text)
-            if not m:
-                m = re.search(r'data-last-normal-market-timestamp="\d+".*?data-last-price="([\d,.]+)"', r.text, re.DOTALL)
-            if not m:
+            # Google Finance 页面里的价格数据嵌在 JS 数据结构中
+            # 找所有 7xxx.xx 格式的数字（SPX 在 7000-8000 范围）
+            nums = re.findall(r'(?<![\d.])([7]\d{3}\.\d{2})(?![\d])', r.text)
+            if not nums:
+                # 也试 6xxx 或 8xxx 范围（以防 SPX 大幅波动）
+                nums = re.findall(r'(?<![\d.])([6-9]\d{3}\.\d{2})(?![\d])', r.text)
+            if not nums:
                 raise ValueError("SPX: yfinance NaN and Google Finance fallback failed")
-            close = round(float(m.group(1).replace(",", "")), 2)
+            # 取出现频率最高的值（通常是收盘价，在页面中重复出现）
+            from collections import Counter
+            close = round(float(Counter(nums).most_common(1)[0][0]), 2)
 
         if prev is None:
             prev = close
