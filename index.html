@@ -340,8 +340,8 @@
     </div>
   </div>
   <div class="date">
-    <strong>2026年9月24日</strong>
-    周四 · 美东时间
+    <strong>2026年9月25日</strong>
+    周五 · 美东时间
   </div>
 </div>
 
@@ -360,12 +360,12 @@
   <div class="summary-card">
     <div class="summary-icon">🎯</div>
     <div class="summary-label">今日涨概率</div>
-    <div class="summary-val" style="color:var(--green);">23%</div>
+    <div class="summary-val" style="color:var(--green);">61%</div>
   </div>
   <div class="summary-card">
     <div class="summary-icon">⚡</div>
     <div class="summary-label">VIX</div>
-    <div class="summary-val" style="color:var(--yellow);">15.92</div>
+    <div class="summary-val" style="color:var(--yellow);">15.59</div>
   </div>
 </div>
 
@@ -398,7 +398,7 @@
         <text x="100" y="15" fill="#f59e0b" font-size="10" font-family="sans-serif" text-anchor="middle">中性</text>
         <text x="200" y="148" fill="#10b981" font-size="10" font-family="sans-serif" text-anchor="end">极度贪婪</text>
       </svg>
-      <div class="gauge-value" style="color:var(--red);" id="fg-num">35</div>
+      <div class="gauge-value" style="color:var(--red);" id="fg-num">36</div>
       <div><span class="gauge-label fear">恐惧</span></div>
       <div class="gauge-sub">7月以来最低 · 距历史高点仅 2.7%</div>
     </div>
@@ -452,9 +452,9 @@
 
   <!-- VIX -->
   <div class="card blue col-4">
-    <div class="card-label">CBOE · 9/24 实时</div>
+    <div class="card-label">CBOE · 9/25 实时</div>
     <div class="card-title">VIX 恐慌指数</div>
-    <div class="vix-big" style="color:var(--yellow);">15.92</div>
+    <div class="vix-big" style="color:var(--yellow);">15.59</div>
     <div style="font-size:0.8rem;color:var(--muted);margin-bottom:12px;">较前日 +0.06% · 前收 16.46 · 处于正常区间</div>
 
     <div class="range-wrap">
@@ -466,7 +466,7 @@
         <!-- Gradient track -->
         <div class="range-fill" style="width:100%;background:linear-gradient(90deg,var(--green),var(--yellow),var(--red));"></div>
         <!-- Marker at (16.47-13.38)/(35.30-13.38) = 14.1% -->
-        <div class="range-marker" style="left:11.6%;background:white;"></div>
+        <div class="range-marker" style="left:10.1%;background:white;"></div>
       </div>
     </div>
 
@@ -687,7 +687,7 @@
 
 <div class="footer">
   <span>数据来源：CNN Fear & Greed Index · AAII Sentiment Survey · CBOE VIX · Polymarket</span>
-  <span>仅供参考，不构成投资建议 · 更新时间：2026-09-24 16:37 ET</span>
+  <span>仅供参考，不构成投资建议 · 更新时间：2026-09-25 04:10 ET</span>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -698,10 +698,10 @@
   // 随tracker.py积累后自动替换为真实数据
   // 真实历史数据（来源：Yahoo Finance / Investing.com）
   // 真实历史数据（来源：Yahoo Finance / Investing.com）
-  const labels  = ["9/23", "9/24"];
-  const fg      = [35, 35];
-  const vix     = [14.15, 15.92];
-  const spxChg  = [-0.76, -0.02];
+  const labels  = ["9/23", "9/24", "9/25"];
+  const fg      = [35, 35, 36];
+  const vix     = [14.15, 15.92, 15.59];
+  const spxChg  = [-0.76, -0.02, -0.02];
 
   const ctx = document.getElementById('sentimentChart');
   if (!ctx) return;
@@ -817,7 +817,7 @@ function animateValue(el, start, end, duration) {
   requestAnimationFrame(step);
 }
 const fgNum = document.getElementById('fg-num');
-if (fgNum) animateValue(fgNum, 0, 35, 1200);
+if (fgNum) animateValue(fgNum, 0, 36, 1200);
 
 // Animate bar fills
 document.querySelectorAll('.bar-fill').forEach(bar => {
