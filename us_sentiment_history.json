@@ -271,5 +271,18 @@
     "aaii_bear": 41.6,
     "aaii_week": "10/14/2026",
     "poly_up": 76
+  },
+  {
+    "date": "2026-10-22",
+    "fg_score": 29,
+    "fg_rating": "fear",
+    "vix_close": 18.06,
+    "spx_close": 7757.17,
+    "spx_chg": 0.58,
+    "aaii_bull": 36.9,
+    "aaii_neutral": 17.3,
+    "aaii_bear": 45.8,
+    "aaii_week": "10/21/2026",
+    "poly_up": 8
   }
 ]
