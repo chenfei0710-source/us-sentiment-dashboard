@@ -1,10 +1,10 @@
 {
-  "last_run": "2026-10-23T09:04:40.928548-04:00",
-  "mode": "pre",
+  "last_run": "2026-10-23T19:16:20.886503-04:00",
+  "mode": "post",
   "data_ok": true,
   "fg_score": 23,
   "vix_close": 20.11,
-  "spx_close": 7663.43,
-  "spx_chg": -1.21,
+  "spx_close": 7623.68,
+  "spx_chg": -0.52,
   "poly_up": 29
 }
