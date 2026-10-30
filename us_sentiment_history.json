@@ -353,6 +353,14 @@
   {
     "date": "2026-10-30",
     "spx_close": 7720.39,
-    "spx_chg": -0.3
+    "spx_chg": -0.3,
+    "fg_score": 26,
+    "fg_rating": "fear",
+    "vix_close": 19.79,
+    "aaii_bull": 37.8,
+    "aaii_neutral": 20.7,
+    "aaii_bear": 41.4,
+    "aaii_week": "10/28/2026",
+    "poly_up": 2
   }
 ]
