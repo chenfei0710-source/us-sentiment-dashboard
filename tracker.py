@@ -99,6 +99,24 @@ def fetch_vix():
     result, ok = _retry(_fetch, "VIX")
     return result if ok else FALLBACKS["vix"]
 
+def _cnbc_quote(symbol):
+    """CNBC Quote API fallback（yfinance 限流时备用）
+    返回 {last, prev, chg_pct, last_time} 或 None
+    """
+    try:
+        import requests as _r
+        url = f"https://quote.cnbc.com/quote-html-webservice/quote.htm?output=json&symbols={symbol}"
+        q = _r.get(url, timeout=10, headers={"User-Agent":"Mozilla/5.0"}).json()
+        q = q["QuickQuoteResult"]["QuickQuote"][0]
+        last = round(float(q["last"]), 2)
+        prev = round(float(q.get("previous_day_closing") or q["last"]), 2)
+        chg_pct = round((last - prev) / prev * 100, 2) if prev else 0.0
+        return {"last": last, "prev": prev, "chg_pct": chg_pct,
+                "last_time": q.get("last_time")}
+    except Exception:
+        return None
+
+
 def fetch_spx():
     """SPX 收盘价 via yfinance，nan 时回退到 Google Finance 网页"""
     def _fetch():
@@ -132,8 +150,16 @@ def fetch_spx():
             if not nums:
                 # 也试 6xxx 或 8xxx 范围（以防 SPX 大幅波动）
                 nums = re.findall(r'(?<![\d.])([6-9]\d{3}\.\d{2})(?![\d])', r.text)
+            # ── CNBC Quote API fallback（yfinance + Google 都失败时）──
+            cnbc = _cnbc_quote(".SPX")
+            if cnbc:
+                close = cnbc["last"]
+                prev = cnbc["prev"]
+                chg_pct = cnbc["chg_pct"]
+                return {"close": close, "prev": prev, "chg_pct": chg_pct, "last_time": cnbc["last_time"]}
+
             if not nums:
-                raise ValueError("SPX: yfinance NaN and Google Finance fallback failed")
+                raise ValueError("SPX: yfinance NaN and Google/CNBC fallback failed")
             # 取出现频率最高的值（通常是收盘价，在页面中重复出现）
             from collections import Counter
             close = round(float(Counter(nums).most_common(1)[0][0]), 2)
@@ -141,7 +167,7 @@ def fetch_spx():
         if prev is None:
             prev = close
         chg_pct = round((close - prev) / prev * 100, 2)
-        return {"close": close, "prev": prev, "chg_pct": chg_pct}
+        return {"close": close, "prev": prev, "chg_pct": chg_pct, "last_time": None}
     result, ok = _retry(_fetch, "SPX")
     return result if ok else FALLBACKS["spx"]
 
@@ -507,6 +533,7 @@ def build_html(fg, vix, spx, aaii, poly, history, now_str):
     </span>
     <span class="sub" style="margin-left:8px;">前日 {spx["prev"]:,.0f}</span>
   </div>
+  <div class="sub" style="margin-top:8px;">最近交易日: <strong style="color:var(--text);">{spx.get("last_time") or "—"}</strong></div>
   <div class="insight" style="margin-top:14px;">
     {"距全时高点 7,799 约 " + str(round((7799-spx["close"])/7799*100,1)) + "%，强势区间内" if spx["close"] < 7799 else "突破历史高点！"}
   </div>
@@ -517,7 +544,7 @@ def build_html(fg, vix, spx, aaii, poly, history, now_str):
   <div class="card-label">Polymarket 预测市场 · 资金背书概率</div>
   <div class="card-title">实时赔率</div>
   <div class="poly-item">
-    <div class="poly-q">📅 SPX <strong>今日</strong>收涨</div>
+    <div class="poly-q">📅 SPX <strong>{today_date} 收涨</strong></div>
     <div class="poly-v" style="color:{poly_color};">{poly["up"]}% Up
       <span class="tag {'tag-bull' if poly['up']>=60 else 'tag-bear' if poly['up']<=40 else ''}">{
         '强偏多' if poly['up']>=65 else '偏多' if poly['up']>=55 else '中性' if poly['up']>=45 else '偏空'
@@ -702,6 +729,21 @@ def update_v2_html(fg, vix, spx, aaii, poly, history, now, mode):
         html = re.sub(r'const fg\s*=\s*\[.*?\];',     f'const fg      = {fg_js};',     html, flags=re.DOTALL)
         html = re.sub(r'const vix\s*=\s*\[.*?\];',    f'const vix     = {vix_js};',    html, flags=re.DOTALL)
         html = re.sub(r'const spxChg\s*=\s*\[.*?\];', f'const spxChg  = {spxchg_js};', html, flags=re.DOTALL)
+
+    # 9b. SPX 最近交易日同步
+    if spx.get("last_time"):
+        html = re.sub(
+            r'(最近交易日:\s*)<strong[^>]*>[^<]*</strong>',
+            f'\g<1><strong style="color:var(--text);">{spx["last_time"]}</strong>',
+            html)
+
+    # 9c. Polymarket 区块 "今日" 字样同步成当前日期（避免字面字符串陈旧）
+    poly_date_label = now.strftime("%-m/%-d")
+    # 兼容多种历史格式：'今日' / '9月18日' / '10/30' 等
+    html = re.sub(
+        r'(📅 SPX )<strong>[^<]{1,20}</strong>(收涨)',
+        f'\g<1><strong>{poly_date_label} 收涨</strong>\g<2>',
+        html)
 
     # 10. 页脚更新时间（完全替换，不追加）
     html = re.sub(r'更新时间：[^·]*?(?=</span>)',
