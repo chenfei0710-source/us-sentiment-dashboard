@@ -686,11 +686,59 @@ def update_v2_html(fg, vix, spx, aaii, poly, history, now, mode):
     html = re.sub(r'animateValue\(fgNum, 0, \d+,',
                   f'animateValue(fgNum, 0, {fg["score"]},', html)
 
-    # 7. AAII 进度条宽度
-    html = re.sub(r'(🐂 看涨.*?)([\d.]+)(%.*?均值)', lambda m:
-        m.group(0).replace(m.group(2), str(aaii["bullish"])), html, flags=re.DOTALL)
-    for emoji, key, color in [("🐻", "bearish", "--red"), ("➡️", "neutral", "--yellow")]:
-        pass  # minimal change: just update bar widths via data attrs if needed
+    # 7. AAII 卡片完整刷新（标签 / 数字 / bar宽度 / 均值偏差 / insight）
+    # 7a. week 标签：'截至 9/17（最新）' → '截至 {week}（最新）'
+    html = re.sub(r'(AAII 散户调查 · 截至 )\S+(?=（最新）)',
+                  rf'\g<1>{aaii["week"]}', html)
+
+    # 7b. 三项数字 + 均值偏差
+    #   结构：<span class="val" style="...">XX.X% <span ...>均值 37.5% ▼-9.2pp</span></span>
+    aaii_metrics = [
+        ("🐂 看涨",       aaii["bullish"], "var(--green)",  37.5),
+        ("➡️ 中性",      aaii["neutral"], "var(--yellow)", 31.0),
+        ("🐻 看跌",      aaii["bearish"], "var(--red)",    31.5),
+    ]
+    for emoji_label, val, color, avg in aaii_metrics:
+        delta = val - avg
+        arrow = "▲" if delta >= 0 else "▼"
+        sign = "+" if delta >= 0 else ""
+        # 数字 + 均值偏差（一并替换，避免误伤同文件其他百分比）
+        html = re.sub(
+            rf'({re.escape(emoji_label)}\s*Bullish.*?<span class="val"[^>]*>)[\d.]+%( <span[^>]*>均值 {avg}% )([▼▲][+\-]?[\d.]+pp</span></span>)',
+            rf'\g<1>{val}%\g<2>{arrow}{sign}{abs(delta):.1f}pp</span></span>',
+            html, flags=re.DOTALL)
+        html = re.sub(
+            rf'({re.escape(emoji_label)}\s*Neutral.*?<span class="val"[^>]*>)[\d.]+%( <span[^>]*>均值 {avg}% )([▼▲][+\-]?[\d.]+pp</span></span>)',
+            rf'\g<1>{val}%\g<2>{arrow}{sign}{abs(delta):.1f}pp</span></span>',
+            html, flags=re.DOTALL)
+        html = re.sub(
+            rf'({re.escape(emoji_label)}\s*Bearish.*?<span class="val"[^>]*>)[\d.]+%( <span[^>]*>均值 {avg}% )([▼▲][+\-]?[\d.]+pp</span></span>)',
+            rf'\g<1>{val}%\g<2>{arrow}{sign}{abs(delta):.1f}pp</span></span>',
+            html, flags=re.DOTALL)
+        # bar 宽度（紧跟在该 bar-row 的 bar-fill 里）
+        html = re.sub(
+            rf'''({re.escape(emoji_label)}.*?class="bar-fill" style="width:)[\d.]+%(;background:{re.escape(color)};)''',
+            rf'''\g<1>{val}%\g<2>''',
+            html, flags=re.DOTALL)
+
+    # 7c. insight 文案（看跌>50 → 逆向买入信号；>37 → 中期买点；否则中性）
+    if aaii["bearish"] > 50:
+        aaii_insight = (f'<strong style="color:var(--red);">看跌高位：</strong>'
+                        f'散户看跌比例维持 {aaii["bearish"]}%（+{aaii["bearish"]-31.5:.1f}pp），'
+                        f'看跌情绪仍浓。历史上看跌 &gt;50% 常为<strong style="color:var(--green);">逆向买入信号</strong>。')
+    elif aaii["bearish"] > 37:
+        aaii_insight = (f'<strong style="color:var(--red);">看跌偏高：</strong>'
+                        f'散户看跌比例 {aaii["bearish"]}%（+{aaii["bearish"]-31.5:.1f}pp）。'
+                        f'历史上看跌 &gt;37% 常为<strong style="color:var(--green);">中期买点</strong>。')
+    elif aaii["bullish"] > 45:
+        aaii_insight = (f'<strong style="color:var(--green);">看涨情绪积极：</strong>'
+                        f'散户乐观情绪 {aaii["bullish"]}% 高于均值。')
+    else:
+        aaii_insight = '情绪分布接近历史均值，无极端信号。'
+    html = re.sub(
+        r'(<div class="insight-box" style="margin-top:12px;">).*?(?=</div>)',
+        rf'\g<1>\n      {aaii_insight}',
+        html, flags=re.DOTALL)
 
     # 8. VIX 大数字（class="vix-big"）
     html = re.sub(r'(<div class="vix-big"[^>]*>)([\d.]+)(</div>)',
