@@ -349,5 +349,10 @@
     "fg_rating": "fear",
     "vix_close": 17.45,
     "poly_up": 62
+  },
+  {
+    "date": "2026-11-13",
+    "spx_close": 7592.4,
+    "spx_chg": -0.35
   }
 ]
