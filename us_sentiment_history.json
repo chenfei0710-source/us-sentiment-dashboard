@@ -493,6 +493,14 @@
   {
     "date": "2026-11-27",
     "spx_close": 7182.78,
-    "spx_chg": -0.25
+    "spx_chg": -0.25,
+    "fg_score": 25,
+    "fg_rating": "extreme fear",
+    "vix_close": 24.54,
+    "aaii_bull": 38.0,
+    "aaii_neutral": 22.7,
+    "aaii_bear": 39.3,
+    "aaii_week": "—",
+    "poly_up": 98
   }
 ]
